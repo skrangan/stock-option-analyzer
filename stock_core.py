@@ -488,12 +488,26 @@ def calculate_quarterly_results(earnings_dates: pd.DataFrame, calendar: dict, hi
     if not future_ed.empty:
         next_row = future_ed.sort_index().iloc[0]
         days_until = (next_row.name - now_ts).days
+        is_exact_time = next_row.name.hour > 0 or next_row.name.minute > 0
+        if next_row.name.hour >= 16 or (next_row.name.hour >= 15 and next_row.name.minute >= 30):
+            timing_status = "Confirmed by IR (After Market Close)"
+        elif 0 < next_row.name.hour <= 10:
+            timing_status = "Confirmed by IR (Before Market Open)"
+        elif is_exact_time:
+            timing_status = "Scheduled by IR"
+        else:
+            timing_status = "Estimated Calendar Window"
+
         next_earnings = {
             "date": next_row.name.strftime("%b %d, %Y"),
             "datetime_full": next_row.name.strftime("%Y-%m-%d %H:%M %Z"),
             "days_until": days_until,
-            "eps_estimate": next_row.get("EPS Estimate") if pd.notna(next_row.get("EPS Estimate")) else None
+            "eps_estimate": next_row.get("EPS Estimate") if pd.notna(next_row.get("EPS Estimate")) else None,
+            "timing_status": timing_status,
+            "primary_source": "Yahoo Finance / LSEG Institutional Corporate Events",
+            "official_origin": "Company Investor Relations (IR) Press Releases & SEC Form 8-K Filings"
         }
+
         
     hist_aligned = hist.copy()
     if hist_aligned.index.tz is None:

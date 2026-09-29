@@ -576,16 +576,23 @@ with tab_stock:
                 countdown = next_q["days_until"]
                 cd_badge = "badge-neutral" if countdown > 14 else "badge-green"
                 eps_est_str = f"${next_q['eps_estimate']:.2f}" if next_q.get("eps_estimate") is not None else "Pending"
+                timing_st = next_q.get("timing_status", "Scheduled by IR")
+                prim_src = next_q.get("primary_source", "Yahoo Finance / LSEG Corporate Events")
+                off_src = next_q.get("official_origin", "Company Investor Relations & SEC Filings")
+                
                 st.markdown(f"""
                 <div class="metric-card">
                     <div class="metric-title">Expected Announcement Date</div>
                     <div class="metric-value-lg">{next_q['date']}</div>
                     <div style="margin-top: 8px;">
                         <span class="{cd_badge}">⏳ In ~{countdown} days</span>
+                        &nbsp;&nbsp;<span style="font-size: 13px; font-weight: 600; color: #0284C7;">({timing_st})</span>
                     </div>
                     <div class="metric-sub" style="margin-top: 10px;">
                         • <b>Exact Datetime:</b> {next_q['datetime_full']}<br>
-                        • <b>Consensus EPS Estimate:</b> {eps_est_str}
+                        • <b>Consensus EPS Estimate:</b> {eps_est_str}<br>
+                        • <b>Data Source:</b> {prim_src}<br>
+                        • <b>Official Origin:</b> {off_src}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
