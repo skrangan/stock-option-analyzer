@@ -1,6 +1,8 @@
-# 📈 Stock Analysis & 2-Week Outlook Application
+# 📈 Stock Analysis & Option Decision Platform
 
-A modern, comprehensive stock analysis application built with **Python**, **Streamlit**, **Plotly**, and **yfinance**. It provides real-time equity statistics, multi-period growth tracking, volume analytics, a multi-source 2-week quantitative outlook forecast, and quarterly earnings performance reactions.
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/skrangan/stock-option-analyzer)
+
+A modern, high-performance, mobile-responsive stock analysis and option decision application. It features both a lightweight mobile SPA (`FastAPI` + `Tailwind` + `Chart.js`) and a rich desktop dashboard (`Streamlit` + `Plotly`), providing real-time equity statistics, multi-period growth tracking, volume analytics, a multi-source 2-week quantitative outlook forecast, quarterly earnings performance reactions, and a Black-Scholes option purchase simulator.
 
 ---
 
@@ -71,33 +73,43 @@ A modern, comprehensive stock analysis application built with **Python**, **Stre
 
 ## 🚀 How to Run
 
-### Option 1: Interactive Web Application (Streamlit)
-
-From the project directory, run:
-
+### Option 1: Mobile-Friendly Fast Web App (Recommended for Phone & Desktop)
+Runs the lightweight FastAPI backend with instant 15ms calculation and full mobile responsiveness:
 ```bash
-./run.sh
+./run_web.sh
 ```
-
-Or manually using the Anaconda Python environment:
-
+Or:
 ```bash
-/opt/anaconda3/bin/streamlit run app.py
+/opt/anaconda3/bin/uvicorn server:app --host 0.0.0.0 --port 8000
 ```
-
-The web dashboard will automatically open in your default browser at `http://localhost:8501`.
+- Open `http://localhost:8000` on your computer.
+- Access it on your mobile phone on the same Wi-Fi using your local IP (e.g., `http://10.0.0.185:8000`).
 
 ---
 
-### Option 2: Terminal Command-Line Interface (CLI)
+### Option 2: Free 1-Click Cloud Deployment to Render
+To access your app from anywhere in the world on your phone without leaving your Mac running:
+1. Click the **[Deploy to Render](https://render.com/deploy?repo=https://github.com/skrangan/stock-option-analyzer)** button or log in to [dashboard.render.com](https://dashboard.render.com) with GitHub.
+2. Select **New +** > **Blueprint** (or **Web Service**), and pick `skrangan/stock-option-analyzer`.
+3. Render automatically reads [`render.yaml`](file:///Users/skrangan/Documents/Stock%20analysis/render.yaml) and deploys the app on the Free tier.
+4. You will get a permanent public HTTPS URL (e.g. `https://stock-option-analyzer.onrender.com`).
 
-For quick terminal lookup of any stock ticker:
+---
 
+### Option 3: Streamlit Interactive Dashboard
+Full desktop analytical dashboard with Plotly charts:
+```bash
+./run.sh
+```
+Opens in your browser at `http://localhost:8501`.
+
+---
+
+### Option 4: Terminal Command-Line Interface (CLI)
+For rapid terminal lookup of any stock ticker or option:
 ```bash
 /opt/anaconda3/bin/python cli.py AAPL
-/opt/anaconda3/bin/python cli.py NVDA
-/opt/anaconda3/bin/python cli.py MSFT
-/opt/anaconda3/bin/python cli.py TSLA
+/opt/anaconda3/bin/python cli.py NVDA --option call --strike 130 --bid 5.50 --dte 30
 ```
 
 ---
