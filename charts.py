@@ -433,3 +433,145 @@ def create_earnings_reaction_bar_chart(historical_earnings: list, ticker_symbol:
     )
 
     return fig
+
+def create_options_pnl_chart(trade_data: dict) -> go.Figure:
+    """
+    Create an interactive Profit & Loss (P&L) curve chart across underlying stock prices
+    for an option purchase (Call or Put) in Light Mode.
+    Shows At Expiration (0 DTE), Halfway to Expiration (50% DTE), and Today (T+0).
+    """
+    curve = trade_data["curve_data"]
+    prices = curve["prices"]
+    pnl_exp = curve["pnl_exp"]
+    pnl_half = curve["pnl_halfway"]
+    pnl_today = curve["pnl_today"]
+
+    curr_p = trade_data["current_price"]
+    strike_p = trade_data["strike"]
+    be_p = trade_data["breakeven_price"]
+    opt_type = trade_data["option_type"]
+    symbol = trade_data["symbol"]
+    tot_inv = trade_data["total_investment"]
+
+    fig = go.Figure()
+
+    # Zero P&L horizontal reference
+    fig.add_hline(
+        y=0,
+        line_width=1.5,
+        line_color="#475569",
+        line_dash="solid"
+    )
+
+    # 1. P&L at Expiration (Solid line)
+    fig.add_trace(
+        go.Scatter(
+            x=prices,
+            y=pnl_exp,
+            mode="lines",
+            name="At Expiration (0 DTE)",
+            line=dict(color="#0F172A", width=3),
+            hovertemplate="<b>Stock: $%{x:.2f}</b><br>P&L at Expiration: <b>$%{y:,.2f}</b><extra></extra>"
+        )
+    )
+
+    # 2. P&L Halfway to Expiration (Dashed line)
+    fig.add_trace(
+        go.Scatter(
+            x=prices,
+            y=pnl_half,
+            mode="lines",
+            name=f"Halfway to Exp ({trade_data['dte'] // 2} DTE)",
+            line=dict(color="#2563EB", width=2, dash="dash"),
+            hovertemplate="<b>Stock: $%{x:.2f}</b><br>P&L Halfway: <b>$%{y:,.2f}</b><extra></extra>"
+        )
+    )
+
+    # 3. P&L Today (T+0) (Dotted line)
+    fig.add_trace(
+        go.Scatter(
+            x=prices,
+            y=pnl_today,
+            mode="lines",
+            name="Today (T+0)",
+            line=dict(color="#8B5CF6", width=2, dash="dot"),
+            hovertemplate="<b>Stock: $%{x:.2f}</b><br>P&L Today: <b>$%{y:,.2f}</b><extra></extra>"
+        )
+    )
+
+    # Vertical line: Current Stock Price
+    fig.add_vline(
+        x=curr_p,
+        line_width=1.5,
+        line_dash="dash",
+        line_color="#64748B",
+        annotation_text=f"Current: ${curr_p:.2f}",
+        annotation_position="top left",
+        annotation_font=dict(color="#334155", size=11)
+    )
+
+    # Vertical line: Strike Price
+    fig.add_vline(
+        x=strike_p,
+        line_width=1.5,
+        line_dash="dot",
+        line_color="#D97706",
+        annotation_text=f"Strike: ${strike_p:.2f}",
+        annotation_position="bottom left",
+        annotation_font=dict(color="#D97706", size=11)
+    )
+
+    # Vertical line: Breakeven Price
+    be_color = "#059669" if opt_type == "CALL" else "#DC2626"
+    fig.add_vline(
+        x=be_p,
+        line_width=2,
+        line_dash="dash",
+        line_color=be_color,
+        annotation_text=f"Breakeven: ${be_p:.2f}",
+        annotation_position="top right",
+        annotation_font=dict(color=be_color, size=12, family="sans-serif")
+    )
+
+    # Shade Profit / Loss zones
+    fig.update_layout(
+        template="plotly_white",
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="#F8FAFC",
+        margin=dict(l=55, r=20, t=55, b=35),
+        height=480,
+        title=dict(
+            text=f"<b>{symbol} ${strike_p:.2f} {opt_type} P&L Simulation ({trade_data['expiration_date']})</b> &nbsp;&nbsp; "
+                 f"<span style='font-size:14px; color:#64748B;'>Investment: ${tot_inv:,.2f} | Breakeven: ${be_p:.2f}</span>",
+            font=dict(size=17, color="#0F172A")
+        ),
+        xaxis=dict(
+            title="Underlying Stock Price ($)",
+            showgrid=True,
+            gridcolor="#E2E8F0",
+            titlefont=dict(color="#334155"),
+            tickfont=dict(color="#475569")
+        ),
+        yaxis=dict(
+            title="Total Profit / Loss ($)",
+            showgrid=True,
+            gridcolor="#E2E8F0",
+            titlefont=dict(color="#334155"),
+            tickfont=dict(color="#475569"),
+            zeroline=True,
+            zerolinecolor="#475569",
+            zerolinewidth=1.5
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            font=dict(color="#334155")
+        ),
+        hovermode="x unified"
+    )
+
+    return fig
+
