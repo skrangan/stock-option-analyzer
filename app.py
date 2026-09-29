@@ -114,6 +114,35 @@ st.markdown("""
         padding: 20px 24px;
         margin-bottom: 20px;
     }
+    
+    /* Prominent Top-Level Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 12px;
+        background-color: #F1F5F9;
+        padding: 6px 8px;
+        border-radius: 10px;
+        margin-bottom: 22px;
+        border: 1px solid #E2E8F0;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 48px;
+        font-size: 16px;
+        font-weight: 700;
+        border-radius: 8px;
+        padding: 0 24px;
+        color: #475569;
+        background-color: transparent;
+        transition: all 0.2s ease;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        color: #0F172A;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #FFFFFF !important;
+        color: #2563EB !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -237,6 +266,8 @@ tab_stock, tab_options = st.tabs([
 # TAB 1: STOCK ANALYTICS & GROWTH
 # ==============================================================================
 with tab_stock:
+    st.info(f"💡 **Planning to trade options on {active_ticker}?** Switch to the **'🎯 Option Buy Decision & P&L Simulator'** tab above to test strike prices, bid premiums, breakeven, and P&L curves across expiration dates!")
+    
     # Growth Metrics Cards
     st.subheader("📊 Stock Growth Summary")
     st.caption("Percentage return from the start of each period to current price:")
