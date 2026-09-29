@@ -256,17 +256,32 @@ with head_col2:
 
 st.markdown("---")
 
-# ----------------- PRIMARY TABS -----------------
-tab_stock, tab_options = st.tabs([
-    "📊 Stock Analytics & Growth",
-    "🎯 Option Buy Decision & P&L Simulator"
-])
+# ----------------- PRIMARY NAVIGATION (SESSION-STATE PRESERVED) -----------------
+if "active_nav_tab" not in st.session_state:
+    st.session_state.active_nav_tab = "📊 Stock Analytics & Growth"
+
+chosen_nav = st.segmented_control(
+    "Navigation View:",
+    options=["📊 Stock Analytics & Growth", "🎯 Option Buy Decision & P&L Simulator"],
+    default=st.session_state.active_nav_tab,
+    key="segmented_main_nav"
+)
+if chosen_nav and chosen_nav != st.session_state.active_nav_tab:
+    st.session_state.active_nav_tab = chosen_nav
+    st.rerun()
 
 # ==============================================================================
-# TAB 1: STOCK ANALYTICS & GROWTH
+# VIEW 1: STOCK ANALYTICS & GROWTH
 # ==============================================================================
-with tab_stock:
-    st.info(f"💡 **Planning to trade options on {active_ticker}?** Switch to the **'🎯 Option Buy Decision & P&L Simulator'** tab above to test strike prices, bid premiums, breakeven, and P&L curves across expiration dates!")
+if st.session_state.active_nav_tab == "📊 Stock Analytics & Growth":
+    col_nav1, col_nav2 = st.columns([3, 1])
+    with col_nav1:
+        st.info(f"💡 Looking to evaluate options on **{active_ticker}**? Switch views above or click:")
+    with col_nav2:
+        if st.button("🎯 Open Option Simulator", key="btn_jump_to_opts", use_container_width=True, type="primary"):
+            st.session_state.active_nav_tab = "🎯 Option Buy Decision & P&L Simulator"
+            st.rerun()
+
     
     # Growth Metrics Cards
     st.subheader("📊 Stock Growth Summary")
@@ -666,9 +681,9 @@ with tab_stock:
 
 
 # ==============================================================================
-# TAB 2: OPTION BUY DECISION & P&L SIMULATOR
+# VIEW 2: OPTION BUY DECISION & P&L SIMULATOR
 # ==============================================================================
-with tab_options:
+else:
     st.subheader(f"🎯 Option Purchase Decision & P&L Simulator for {active_ticker}")
     st.caption(
         f"Enter your strike price, bid/premium amount, and expiration date. "
