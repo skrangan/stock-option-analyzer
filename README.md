@@ -48,6 +48,25 @@ A modern, comprehensive stock analysis application built with **Python**, **Stre
      - Prior close vs reaction close.
    - **Historical Earnings Reaction Chart & Table**: Track record of the past 4-6 quarters comparing EPS surprises with immediate market reactions.
 
+7. **🎯 Option Purchase Decision & P&L Simulator**:
+   - **"Should I Buy This Option?" Verdict Engine**: Recommends `🟢 FAVORABLE`, `🟡 SPECULATIVE`, or `🔴 UNFAVORABLE` based on:
+     - Directional alignment with the 2-week technical outlook.
+     - Probability of Profit (PoP).
+     - Required move to breakeven vs expected market volatility.
+     - Time decay (Theta) burn severity over the Days to Expiration (DTE).
+   - **Interactive Inputs**:
+     - Option Type (Call / Put).
+     - Expiration Date (populated from real live options chain or custom date).
+     - Strike Price ($) and Bid Amount / Premium Paid ($/share).
+     - Number of contracts.
+   - **P&L Metrics**:
+     - Total investment (max loss), Breakeven Price & % move needed, Max Profit potential.
+     - Probability of Profit (PoP %).
+     - Daily Theta time decay ($/day) and Black-Scholes Greeks (Delta, Gamma, Vega, IV).
+   - **Multi-Date P&L Curve Chart**: Visualizes profit/loss across stock prices at Expiration (0 DTE), Halfway to Expiration (50% DTE), and Today (T+0).
+   - **Scenario Matrix Table**: Detailed breakdown of stock prices from -20% to +20%, net dollar P&L, and ROI (%).
+
+
 ---
 
 ## 🚀 How to Run
