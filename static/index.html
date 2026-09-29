@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Stock & Option Analyzer</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #0F172A; }
+    .card { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .tab-active { background-color: #FFFFFF !important; color: #2563EB !important; box-shadow: 0 2px 4px rgba(0,0,0,0.06); font-weight: 700; }
+    .pill-active { background-color: #2563EB !important; color: #FFFFFF !important; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased">
+
+  <!-- Top Sticky Navigation Bar -->
+  <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 py-3 sm:px-6">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="flex items-center justify-between w-full sm:w-auto">
+        <div class="flex items-center space-x-2">
+          <span class="text-2xl">📈</span>
+          <span class="font-extrabold text-lg sm:text-xl tracking-tight text-slate-900">AlphaStock & Option</span>
+        </div>
+        <!-- Mobile Phone Friendly Ticker Search -->
+        <div class="sm:hidden flex items-center space-x-1">
+          <input type="text" id="mobileTickerInput" value="AAPL" class="w-24 uppercase px-2.5 py-1.5 text-sm font-bold border border-slate-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <button onclick="searchTicker(document.getElementById('mobileTickerInput').value)" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold">Go</button>
+        </div>
+      </div>
+
+      <!-- Quick Ticker Chips (Desktop & Mobile) -->
+      <div class="flex items-center space-x-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none">
+        <span class="text-xs font-semibold text-slate-400 uppercase hidden md:inline mr-1">Popular:</span>
+        <button onclick="searchTicker('AAPL')" class="chip-btn px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-xs font-bold rounded-lg text-slate-700">AAPL</button>
+        <button onclick="searchTicker('MSFT')" class="chip-btn px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-xs font-bold rounded-lg text-slate-700">MSFT</button>
+        <button onclick="searchTicker('NVDA')" class="chip-btn px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-xs font-bold rounded-lg text-slate-700">NVDA</button>
+        <button onclick="searchTicker('TSLA')" class="chip-btn px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-xs font-bold rounded-lg text-slate-700">TSLA</button>
+        <button onclick="searchTicker('GOOGL')" class="chip-btn px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-xs font-bold rounded-lg text-slate-700">GOOGL</button>
+        <button onclick="searchTicker('AMZN')" class="chip-btn px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-xs font-bold rounded-lg text-slate-700">AMZN</button>
+        <button onclick="searchTicker('META')" class="chip-btn px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-xs font-bold rounded-lg text-slate-700">META</button>
+        <button onclick="searchTicker('SPY')" class="chip-btn px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-xs font-bold rounded-lg text-slate-700">SPY</button>
+      </div>
+
+      <!-- Desktop Search Bar -->
+      <div class="hidden sm:flex items-center space-x-2">
+        <input type="text" id="desktopTickerInput" value="AAPL" placeholder="Search Symbol..." class="w-36 uppercase px-3 py-1.5 text-sm font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        <button onclick="searchTicker(document.getElementById('desktopTickerInput').value)" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition">Analyze</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto w-full px-4 sm:px-6 py-5 flex-1">
+
+    <!-- Loading Spinner Overlay -->
+    <div id="loadingOverlay" class="hidden flex items-center justify-center py-12">
+      <div class="inline-flex items-center px-4 py-2 font-semibold text-sm leading-6 text-blue-600 bg-white rounded-md shadow border border-slate-200">
+        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Fetching live market data...
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div id="contentArea">
+
+      <!-- Stock Header Card -->
+      <div class="card p-5 mb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 id="stockName" class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Apple Inc.</h1>
+            <span id="stockSymbolBadge" class="bg-slate-100 text-slate-800 text-xs font-bold px-2.5 py-1 rounded-md border border-slate-200">AAPL</span>
+          </div>
+          <div class="text-xs sm:text-sm text-slate-500 mt-1 flex flex-wrap gap-x-3 gap-y-1">
+            <span>Exchange: <b id="stockExchange" class="text-slate-700">NASDAQ</b></span>
+            <span>•</span>
+            <span>Sector: <b id="stockSector" class="text-slate-700">Technology</b></span>
+            <span>•</span>
+            <span>Industry: <b id="stockIndustry" class="text-slate-700">Consumer Electronics</b></span>
+          </div>
+        </div>
+
+        <div class="flex md:flex-col items-baseline md:items-end justify-between md:justify-center">
+          <div id="stockPrice" class="text-3xl sm:text-4xl font-extrabold text-slate-900">$329.40</div>
+          <div id="stockDelta" class="text-sm sm:text-base font-bold text-rose-600 mt-0.5">-$9.00 (-2.66%)</div>
+        </div>
+      </div>
+
+      <!-- PRIMARY NAVIGATION TABS (NEVER JUMPS / CLIENTSIDE STATE) -->
+      <div class="bg-slate-200/70 p-1.5 rounded-xl flex space-x-2 mb-6 border border-slate-300">
+        <button id="navTabStock" onclick="switchMainTab('stock')" class="flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold text-slate-700 text-center transition tab-active flex items-center justify-center space-x-2">
+          <span>📊</span>
+          <span>Stock Stats, Growth & Outlook</span>
+        </button>
+        <button id="navTabOptions" onclick="switchMainTab('options')" class="flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold text-slate-700 text-center transition flex items-center justify-center space-x-2">
+          <span>🎯</span>
+          <span>Option Buy Decision & P&L Simulator</span>
+        </button>
+      </div>
+
+      <!-- ========================================================= -->
+      <!-- VIEW 1: STOCK STATS & GROWTH -->
+      <!-- ========================================================= -->
+      <div id="viewStock" class="space-y-6">
+
+        <!-- Callout Banner to Options -->
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div class="flex items-center space-x-2.5 text-blue-900 text-sm font-medium">
+            <span class="text-lg">🎯</span>
+            <span>Want to evaluate buying a Call or Put option on <b id="bannerTicker" class="font-bold">AAPL</b>?</span>
+          </div>
+          <button onclick="switchMainTab('options')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm whitespace-nowrap transition">Open Option Simulator ➔</button>
+        </div>
+
+        <!-- Growth Metrics Cards -->
+        <div>
+          <h2 class="text-base font-bold uppercase tracking-wider text-slate-500 mb-3">Multi-Period Growth Summary</h2>
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <!-- 1 Year -->
+            <div class="card p-4">
+              <div class="text-xs font-bold uppercase text-slate-400">1-Year Growth</div>
+              <div id="growth1Y" class="text-xl sm:text-2xl font-extrabold text-emerald-600 mt-1">+29.94%</div>
+              <div id="growth1YSub" class="text-xs text-slate-500 mt-1">Start: $253.49 (2025-09-29)</div>
+              <button onclick="setChartPeriod('1Y')" class="mt-2.5 w-full py-1 text-xs font-semibold text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded">View 1Y Chart</button>
+            </div>
+            <!-- 6 Month -->
+            <div class="card p-4">
+              <div class="text-xs font-bold uppercase text-slate-400">6-Month Growth</div>
+              <div id="growth6M" class="text-xl sm:text-2xl font-extrabold text-emerald-600 mt-1">+32.63%</div>
+              <div id="growth6MSub" class="text-xs text-slate-500 mt-1">Start: $248.36 (2026-03-27)</div>
+              <button onclick="setChartPeriod('6M')" class="mt-2.5 w-full py-1 text-xs font-semibold text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded">View 6M Chart</button>
+            </div>
+            <!-- 3 Month -->
+            <div class="card p-4">
+              <div class="text-xs font-bold uppercase text-slate-400">3-Month Growth</div>
+              <div id="growth3M" class="text-xl sm:text-2xl font-extrabold text-emerald-600 mt-1">+17.02%</div>
+              <div id="growth3MSub" class="text-xs text-slate-500 mt-1">Start: $281.50 (2026-06-29)</div>
+              <button onclick="setChartPeriod('3M')" class="mt-2.5 w-full py-1 text-xs font-semibold text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded">View 3M Chart</button>
+            </div>
+            <!-- 1 Week -->
+            <div class="card p-4">
+              <div class="text-xs font-bold uppercase text-slate-400">1-Week Growth</div>
+              <div id="growth1W" class="text-xl sm:text-2xl font-extrabold text-rose-600 mt-1">-3.05%</div>
+              <div id="growth1WSub" class="text-xs text-slate-500 mt-1">Start: $339.75 (2026-09-22)</div>
+              <button onclick="setChartPeriod('1W')" class="mt-2.5 w-full py-1 text-xs font-semibold text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded">View 1W Chart</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Volume & Market Stats -->
+        <div>
+          <h2 class="text-base font-bold uppercase tracking-wider text-slate-500 mb-3">Volume of Trade & Valuation</h2>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <div class="card p-4">
+              <div class="text-xs font-bold uppercase text-slate-400">Today's Volume</div>
+              <div id="volToday" class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">37.8M</div>
+              <div class="text-xs text-slate-500 mt-1">Shares traded today</div>
+            </div>
+            <div class="card p-4">
+              <div class="text-xs font-bold uppercase text-slate-400">Relative Volume</div>
+              <div id="volRVOL" class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">0.96x</div>
+              <div id="volStatus" class="text-xs text-slate-500 mt-1">Normal Volume</div>
+            </div>
+            <div class="card p-4">
+              <div class="text-xs font-bold uppercase text-slate-400">10D Avg Volume</div>
+              <div id="vol10D" class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">39.2M</div>
+              <div id="vol3M" class="text-xs text-slate-500 mt-1">3M Avg: 47.3M</div>
+            </div>
+            <div class="card p-4">
+              <div class="text-xs font-bold uppercase text-slate-400">Dollar Volume Traded</div>
+              <div id="volDollar" class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">$12.4B</div>
+              <div class="text-xs text-slate-500 mt-1">Total capital traded today</div>
+            </div>
+          </div>
+
+          <!-- Key Valuation Row -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-3">
+            <div class="card p-3 text-center">
+              <div class="text-xs text-slate-400 font-semibold">Market Cap</div>
+              <div id="valMarketCap" class="text-sm font-bold text-slate-900 mt-0.5">$3.21T</div>
+            </div>
+            <div class="card p-3 text-center">
+              <div class="text-xs text-slate-400 font-semibold">Trailing P/E</div>
+              <div id="valPE" class="text-sm font-bold text-slate-900 mt-0.5">34.2</div>
+            </div>
+            <div class="card p-3 text-center">
+              <div class="text-xs text-slate-400 font-semibold">Forward P/E</div>
+              <div id="valFwdPE" class="text-sm font-bold text-slate-900 mt-0.5">28.5</div>
+            </div>
+            <div class="card p-3 text-center">
+              <div class="text-xs text-slate-400 font-semibold">Beta</div>
+              <div id="valBeta" class="text-sm font-bold text-slate-900 mt-0.5">1.12</div>
+            </div>
+            <div class="card p-3 text-center col-span-2 sm:col-span-1">
+              <div class="text-xs text-slate-400 font-semibold">52W Range</div>
+              <div id="val52W" class="text-sm font-bold text-slate-900 mt-0.5">$243 - $345</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Growth Chart -->
+        <div class="card p-5">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-slate-900">Stock Growth & Price Action</h2>
+              <div id="chartSummary" class="text-xs sm:text-sm text-slate-500 mt-0.5">Start: $248.36 ➔ Current: $329.40 (+32.63%)</div>
+            </div>
+
+            <!-- Timeframe Pills Toolbar -->
+            <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+              <button onclick="setChartPeriod('1W')" id="pill-1W" class="chart-pill px-2.5 py-1 text-xs font-bold rounded text-slate-600">1W</button>
+              <button onclick="setChartPeriod('1M')" id="pill-1M" class="chart-pill px-2.5 py-1 text-xs font-bold rounded text-slate-600">1M</button>
+              <button onclick="setChartPeriod('3M')" id="pill-3M" class="chart-pill px-2.5 py-1 text-xs font-bold rounded text-slate-600">3M</button>
+              <button onclick="setChartPeriod('6M')" id="pill-6M" class="chart-pill px-2.5 py-1 text-xs font-bold rounded pill-active">6M</button>
+              <button onclick="setChartPeriod('1Y')" id="pill-1Y" class="chart-pill px-2.5 py-1 text-xs font-bold rounded text-slate-600">1Y</button>
+              <button onclick="setChartPeriod('2Y')" id="pill-2Y" class="chart-pill px-2.5 py-1 text-xs font-bold rounded text-slate-600">2Y</button>
+              <button onclick="setChartPeriod('5Y')" id="pill-5Y" class="chart-pill px-2.5 py-1 text-xs font-bold rounded text-slate-600">5Y</button>
+              <button onclick="setChartPeriod('YTD')" id="pill-YTD" class="chart-pill px-2.5 py-1 text-xs font-bold rounded text-slate-600">YTD</button>
+            </div>
+          </div>
+
+          <!-- Canvas Container -->
+          <div class="h-72 sm:h-96 w-full">
+            <canvas id="stockChart"></canvas>
+          </div>
+        </div>
+
+        <!-- 2-Week Stock Outlook -->
+        <div class="card p-5">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-slate-900">🔮 2-Week Stock Outlook (Next 10 Trading Days)</h2>
+              <div class="text-xs text-slate-500">Multi-source quantitative model synthesizing Wall Street consensus, RSI, MACD, and historical volatility.</div>
+            </div>
+            <div id="outlookBadge" class="bg-amber-100 text-amber-800 border border-amber-300 px-3 py-1 rounded-full text-xs sm:text-sm font-bold">⚪ Neutral / Rangebound</div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+              <div class="text-xs text-slate-400 font-bold uppercase">Projected 2-Week Target</div>
+              <div id="outlookTarget" class="text-xl font-extrabold text-slate-900 mt-1">$333.13 (+1.13%)</div>
+              <div class="text-xs text-slate-500 mt-0.5">Base-case trajectory over 10 trading days</div>
+            </div>
+            <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+              <div class="text-xs text-slate-400 font-bold uppercase">Expected 2-Week Corridor</div>
+              <div id="outlookCorridor" class="text-xl font-extrabold text-slate-900 mt-1">$312.51 - $353.75</div>
+              <div class="text-xs text-slate-500 mt-0.5">Statistical 80% confidence channel (±1.5σ)</div>
+            </div>
+            <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+              <div class="text-xs text-slate-400 font-bold uppercase">Expected Volatility</div>
+              <div id="outlookVol" class="text-xl font-extrabold text-slate-900 mt-1">±4.84%</div>
+              <div class="text-xs text-slate-500 mt-0.5">Derived from 20-day historical ATR & standard deviation</div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <h3 class="text-sm font-bold text-slate-700 mb-2">🧠 Quantitative Rationale:</h3>
+              <ul id="outlookRationales" class="space-y-1.5 text-xs sm:text-sm text-slate-600 list-disc list-inside"></ul>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-700 mb-2">🏛️ Wall Street Consensus:</h3>
+              <div id="outlookAnalyst" class="text-xs sm:text-sm text-slate-600 space-y-1 bg-slate-50 p-3 rounded-lg border border-slate-200"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quarterly Results & Earnings -->
+        <div class="card p-5">
+          <h2 class="text-lg font-extrabold text-slate-900 mb-4">📅 Quarterly Results & Market Reactions</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <!-- Next Earnings -->
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold uppercase text-slate-400">Next Quarterly Results</span>
+                <span id="nextEarningsBadge" class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded">In ~29 days</span>
+              </div>
+              <div id="nextEarningsDate" class="text-2xl font-extrabold text-slate-900 mt-1.5">Oct 29, 2026</div>
+              <div id="nextEarningsSub" class="text-xs text-slate-600 mt-2 space-y-0.5">
+                <div>• Consensus EPS Estimate: <b>$1.98</b></div>
+                <div>• Status: <b class="text-blue-600">Confirmed by IR (After Market Close)</b></div>
+                <div>• Primary Source: Yahoo Finance / LSEG Corporate Events</div>
+                <div>• Official Origin: Company Investor Relations & SEC Form 8-K</div>
+              </div>
+            </div>
+
+            <!-- Last Earnings -->
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold uppercase text-slate-400">Last Quarterly Results</span>
+                <span id="lastEarningsBeat" class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-0.5 rounded">Beat (+6.74%)</span>
+              </div>
+              <div id="lastEarningsDate" class="text-2xl font-extrabold text-slate-900 mt-1.5">Jul 30, 2026</div>
+              <div id="lastEarningsSub" class="text-xs text-slate-600 mt-2 space-y-0.5">
+                <div>• Reported EPS: <b>$2.02</b> vs Est: <b>$1.89</b></div>
+                <div>• Immediate 1-Day Reaction: <b id="lastEarnings1D" class="text-rose-600">-7.35%</b> (Prior: $333.14 ➔ Close: $308.64)</div>
+                <div>• 1-Week Cumulative Reaction: <b id="lastEarnings1W" class="text-rose-600">-6.30%</b></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Historical Quarters Table -->
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Historical Quarters Track Record</h3>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-xs text-left">
+              <thead class="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
+                <tr>
+                  <th class="p-2.5">Date</th>
+                  <th class="p-2.5">Timing</th>
+                  <th class="p-2.5">EPS Est</th>
+                  <th class="p-2.5">Reported</th>
+                  <th class="p-2.5">Surprise</th>
+                  <th class="p-2.5">Result</th>
+                  <th class="p-2.5">1-Day Move</th>
+                  <th class="p-2.5">1-Week Move</th>
+                </tr>
+              </thead>
+              <tbody id="earningsTableBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ========================================================= -->
+      <!-- VIEW 2: OPTION BUY DECISION & P&L SIMULATOR -->
+      <!-- ========================================================= -->
+      <div id="viewOptions" class="hidden space-y-6">
+
+        <!-- Option Setup Panel -->
+        <div class="card p-5">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+            <div>
+              <h2 class="text-lg font-extrabold text-slate-900">🎯 Option Contract Configuration</h2>
+              <div class="text-xs text-slate-500">Provide strike, bid amount, and expiration to calculate breakeven, P&L, and buy/avoid recommendation.</div>
+            </div>
+            <div class="bg-slate-100 px-3 py-1 rounded text-xs font-bold text-slate-700">Stock Price: <span id="optStockPrice">$329.40</span></div>
+          </div>
+
+          <!-- Inputs Grid -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+            <!-- Option Type -->
+            <div>
+              <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Option Type</label>
+              <select id="optTypeInput" onchange="onOptionParamsChanged()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500">
+                <option value="call">CALL (Bullish)</option>
+                <option value="put">PUT (Bearish)</option>
+              </select>
+            </div>
+
+            <!-- Expiration Date -->
+            <div class="lg:col-span-2">
+              <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Expiration Date</label>
+              <select id="optExpInput" onchange="onOptionParamsChanged()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500"></select>
+            </div>
+
+            <!-- Strike Price -->
+            <div>
+              <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Strike Price ($)</label>
+              <input type="number" id="optStrikeInput" step="1.0" oninput="onOptionParamsChanged()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500" value="335">
+            </div>
+
+            <!-- Bid Amount -->
+            <div>
+              <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Bid / Premium ($/sh)</label>
+              <input type="number" id="optBidInput" step="0.25" min="0.05" oninput="onOptionParamsChanged()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500" value="4.50">
+            </div>
+          </div>
+
+          <div class="mt-3 flex items-center justify-between text-xs text-slate-500">
+            <span id="marketQuoteNotice">💡 Live market quote will be checked automatically.</span>
+            <span>1 Contract = 100 Shares</span>
+          </div>
+        </div>
+
+        <!-- "Should I Buy This Option?" Verdict Card -->
+        <div id="optionVerdictCard" class="card p-5 border-l-8 border-amber-500 bg-amber-50/30">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Recommendation Engine</span>
+              <h3 id="optionVerdictTitle" class="text-2xl font-extrabold text-amber-700 mt-0.5">🟡 SPECULATIVE (Proceed with Caution)</h3>
+            </div>
+            <div id="optionScoreBadge" class="bg-amber-100 text-amber-900 px-3 py-1 rounded-full text-sm font-extrabold">+15 / 100</div>
+          </div>
+          <p id="optionVerdictSummary" class="text-sm text-slate-700 mt-2 font-medium">Mixed setup. Potential reward exists, but hurdle to profitability or theta decay presents elevated risk.</p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-3 border-t border-slate-200">
+            <div>
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Decision Factors</h4>
+              <ul id="optionRationales" class="space-y-1 text-xs sm:text-sm text-slate-600"></ul>
+            </div>
+            <div>
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Friction & Risk Warnings</h4>
+              <ul id="optionWarnings" class="space-y-1 text-xs sm:text-sm text-rose-700"></ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- P&L Metric Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          <div class="card p-4">
+            <div class="text-xs font-bold uppercase text-slate-400">Total Investment</div>
+            <div id="optTotalCost" class="text-xl sm:text-2xl font-extrabold text-rose-600 mt-1">$450.00</div>
+            <div class="text-xs text-slate-500 mt-0.5">Max Loss (Capped at 100%)</div>
+          </div>
+          <div class="card p-4">
+            <div class="text-xs font-bold uppercase text-slate-400">Breakeven Price</div>
+            <div id="optBreakeven" class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">$339.50</div>
+            <div id="optReqMove" class="text-xs font-semibold text-rose-600 mt-0.5">Required Move: +3.07%</div>
+          </div>
+          <div class="card p-4">
+            <div class="text-xs font-bold uppercase text-slate-400">Max Profit</div>
+            <div id="optMaxProfit" class="text-xl sm:text-2xl font-extrabold text-emerald-600 mt-1">Unlimited</div>
+            <div class="text-xs text-slate-500 mt-0.5">Upside potential</div>
+          </div>
+          <div class="card p-4">
+            <div class="text-xs font-bold uppercase text-slate-400">Probability of Profit</div>
+            <div id="optPoP" class="text-xl sm:text-2xl font-extrabold text-amber-600 mt-1">31.0%</div>
+            <div class="text-xs text-slate-500 mt-0.5">Chance of beating breakeven</div>
+          </div>
+          <div class="card p-4 col-span-2 sm:col-span-1">
+            <div class="text-xs font-bold uppercase text-slate-400">Daily Theta Burn</div>
+            <div id="optTheta" class="text-xl sm:text-2xl font-extrabold text-rose-600 mt-1">-$24.44 / day</div>
+            <div class="text-xs text-slate-500 mt-0.5">Time decay erosion rate</div>
+          </div>
+        </div>
+
+        <!-- Interactive P&L Chart -->
+        <div class="card p-5">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900">Profit & Loss Across Stock Prices</h3>
+              <div class="text-xs text-slate-500">Compares P&L at Expiration (0 DTE), Halfway to Expiration, and Today.</div>
+            </div>
+            <div class="flex items-center space-x-3 text-xs">
+              <span class="inline-flex items-center"><span class="w-3 h-3 bg-slate-900 rounded-full mr-1"></span> At Expiration</span>
+              <span class="inline-flex items-center"><span class="w-3 h-3 bg-blue-600 rounded-full mr-1"></span> Halfway</span>
+              <span class="inline-flex items-center"><span class="w-3 h-3 bg-purple-500 rounded-full mr-1"></span> Today</span>
+            </div>
+          </div>
+          <div class="h-72 sm:h-96 w-full">
+            <canvas id="optionsPnlChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Scenario Matrix Table -->
+        <div class="card p-5">
+          <h3 class="text-base font-extrabold text-slate-900 mb-3">Expiration P&L Scenario Matrix</h3>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-xs text-left">
+              <thead class="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
+                <tr>
+                  <th class="p-2.5">Stock Price</th>
+                  <th class="p-2.5">Move (%)</th>
+                  <th class="p-2.5">Option Value</th>
+                  <th class="p-2.5">Net P&L ($)</th>
+                  <th class="p-2.5">ROI (%)</th>
+                  <th class="p-2.5">Benchmark</th>
+                </tr>
+              </thead>
+              <tbody id="scenarioTableBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-slate-200 py-4 px-6 text-center text-xs text-slate-400">
+    AlphaStock & Option Analysis System • Real-Time Quantitative Intelligence • Works on Desktop & Mobile
+  </footer>
+
+  <!-- Frontend Logic & Chart.js Engine -->
+  <script>
+    let currentStockData = null;
+    let stockChartInstance = null;
+    let optionsPnlChartInstance = null;
+    let currentPeriod = "6M";
+    let activeMainTab = "stock";
+    let currentTicker = "AAPL";
+    let debounceTimer = null;
+
+    // Switch between Main Tabs
+    function switchMainTab(tab) {
+      activeMainTab = tab;
+      const tabStock = document.getElementById("navTabStock");
+      const tabOptions = document.getElementById("navTabOptions");
+      const viewStock = document.getElementById("viewStock");
+      const viewOptions = document.getElementById("viewOptions");
+
+      if (tab === "stock") {
+        tabStock.classList.add("tab-active");
+        tabOptions.classList.remove("tab-active");
+        viewStock.classList.remove("hidden");
+        viewOptions.classList.add("hidden");
+      } else {
+        tabOptions.classList.add("tab-active");
+        tabStock.classList.remove("tab-active");
+        viewOptions.classList.remove("hidden");
+        viewStock.classList.add("hidden");
+        // Render or update option analysis
+        triggerOptionAnalysis();
+      }
+    }
+
+    // Set chart period
+    function setChartPeriod(period) {
+      currentPeriod = period;
+      document.querySelectorAll(".chart-pill").forEach(p => p.classList.remove("pill-active"));
+      const activeBtn = document.getElementById(`pill-${period}`);
+      if (activeBtn) activeBtn.classList.add("pill-active");
+      fetchChart(currentTicker, period);
+    }
+
+    // Search or select ticker
+    async function searchTicker(sym) {
+      if (!sym) return;
+      currentTicker = sym.trim().toUpperCase();
+      document.getElementById("desktopTickerInput").value = currentTicker;
+      document.getElementById("mobileTickerInput").value = currentTicker;
+      
+      document.getElementById("loadingOverlay").classList.remove("hidden");
+      document.getElementById("contentArea").classList.add("opacity-40");
+
+      try {
+        const [stockRes, expsRes] = await Promise.all([
+          fetch(`/api/stock/${currentTicker}`),
+          fetch(`/api/options/expirations/${currentTicker}`)
+        ]);
+
+        if (!stockRes.ok) throw new Error("Ticker not found");
+        currentStockData = await stockRes.json();
+        const expsData = await expsRes.json();
+
+        renderStockView(currentStockData);
+        populateExpirationsDropdown(expsData.expirations);
+        await fetchChart(currentTicker, currentPeriod);
+
+        // Pre-fill default strike & bid
+        const p = currentStockData.current_price;
+        const suggestedStrike = Math.round(p / 5) * 5;
+        document.getElementById("optStrikeInput").value = suggestedStrike;
+        document.getElementById("optBidInput").value = Math.max(1, (p * 0.02).toFixed(2));
+
+        if (activeMainTab === "options") {
+          triggerOptionAnalysis();
+        }
+      } catch (err) {
+        alert(`Error loading ticker ${currentTicker}: ${err.message}`);
+      } finally {
+        document.getElementById("loadingOverlay").classList.add("hidden");
+        document.getElementById("contentArea").classList.remove("opacity-40");
+      }
+    }
+
+    // Render Stock Details
+    function renderStockView(data) {
+      document.getElementById("stockName").innerText = data.short_name;
+      document.getElementById("stockSymbolBadge").innerText = data.symbol;
+      document.getElementById("stockExchange").innerText = data.exchange;
+      document.getElementById("stockSector").innerText = data.sector;
+      document.getElementById("stockIndustry").innerText = data.industry;
+      document.getElementById("bannerTicker").innerText = data.symbol;
+      document.getElementById("optStockPrice").innerText = `$${data.current_price.toFixed(2)}`;
+
+      document.getElementById("stockPrice").innerText = `$${data.current_price.toFixed(2)}`;
+      const sign = data.change_abs >= 0 ? "+" : "";
+      const deltaEl = document.getElementById("stockDelta");
+      deltaEl.innerText = `${sign}$${data.change_abs.toFixed(2)} (${sign}${data.change_pct.toFixed(2)}%)`;
+      deltaEl.className = `text-sm sm:text-base font-bold mt-0.5 ${data.change_abs >= 0 ? 'text-emerald-600' : 'text-rose-600'}`;
+
+      // Growth
+      renderGrowthCard("growth1Y", "growth1YSub", data.growth["1_year"]);
+      renderGrowthCard("growth6M", "growth6MSub", data.growth["6_month"]);
+      renderGrowthCard("growth3M", "growth3MSub", data.growth["3_month"]);
+      renderGrowthCard("growth1W", "growth1WSub", data.growth["1_week"]);
+
+      // Volume
+      document.getElementById("volToday").innerText = formatNumber(data.volume.current_volume);
+      document.getElementById("volRVOL").innerText = `${data.volume.rvol_10d.toFixed(2)}x`;
+      document.getElementById("volStatus").innerText = data.volume.volume_status;
+      document.getElementById("vol10D").innerText = formatNumber(data.volume.avg_volume_10d);
+      document.getElementById("vol3M").innerText = `3M Avg: ${formatNumber(data.volume.avg_volume_3m)}`;
+      document.getElementById("volDollar").innerText = formatDollars(data.volume.dollar_volume);
+
+      // Valuation
+      document.getElementById("valMarketCap").innerText = formatDollars(data.market_cap);
+      document.getElementById("valPE").innerText = data.trailing_pe ? data.trailing_pe.toFixed(1) : "N/A";
+      document.getElementById("valFwdPE").innerText = data.forward_pe ? data.forward_pe.toFixed(1) : "N/A";
+      document.getElementById("valBeta").innerText = data.beta ? data.beta.toFixed(2) : "N/A";
+      document.getElementById("val52W").innerText = `$${data.fifty_two_week_low.toFixed(0)} - $${data.fifty_two_week_high.toFixed(0)}`;
+
+      // Outlook
+      const out = data.outlook;
+      const bEl = document.getElementById("outlookBadge");
+      bEl.innerText = `${out.verdict_icon} ${out.verdict}`;
+      bEl.style.backgroundColor = `${out.verdict_color}18`;
+      bEl.style.color = out.verdict_color;
+      bEl.style.borderColor = `${out.verdict_color}60`;
+
+      document.getElementById("outlookTarget").innerText = `$${out.projected_target_2w.toFixed(2)} (${out.expected_change_pct >= 0 ? '+' : ''}${out.expected_change_pct.toFixed(2)}%)`;
+      document.getElementById("outlookCorridor").innerText = `$${out.expected_range_lower.toFixed(2)} - $${out.expected_range_upper.toFixed(2)}`;
+      document.getElementById("outlookVol").innerText = `±${out.expected_volatility_2w_pct.toFixed(2)}%`;
+
+      const rList = document.getElementById("outlookRationales");
+      rList.innerHTML = out.rationales.map(r => `<li>${r}</li>`).join("");
+
+      const aEl = document.getElementById("outlookAnalyst");
+      if (out.target_mean) {
+        aEl.innerHTML = `
+          <div>• Consensus: <b>${out.recommendation_key}</b> (${out.num_analysts} analysts)</div>
+          <div>• Mean Target: <b>$${out.target_mean.toFixed(2)}</b> (${out.analyst_upside_pct >= 0 ? '+' : ''}${out.analyst_upside_pct.toFixed(1)}% move)</div>
+          <div>• Range: $${out.target_low.toFixed(2)} (Low) ➔ $${out.target_high.toFixed(2)} (High)</div>
+        `;
+      } else {
+        aEl.innerText = "No analyst targets available for this ticker.";
+      }
+
+      // Quarterly
+      const q = data.quarterly;
+      if (q.next_earnings) {
+        document.getElementById("nextEarningsDate").innerText = q.next_earnings.date;
+        document.getElementById("nextEarningsBadge").innerText = `In ~${q.next_earnings.days_until} days`;
+        document.getElementById("nextEarningsSub").innerHTML = `
+          <div>• Consensus EPS Estimate: <b>$${q.next_earnings.eps_estimate ? q.next_earnings.eps_estimate.toFixed(2) : 'Pending'}</b></div>
+          <div>• Status: <b class="text-blue-600">${q.next_earnings.timing_status || 'Scheduled by IR'}</b></div>
+          <div>• Source: ${q.next_earnings.primary_source || 'Yahoo Finance'}</div>
+        `;
+      }
+      if (q.last_earnings) {
+        const le = q.last_earnings;
+        document.getElementById("lastEarningsDate").innerText = le.date;
+        document.getElementById("lastEarningsBeat").innerText = `${le.beat_status} (${le.surprise_pct ? le.surprise_pct.toFixed(1) + '%' : ''})`;
+        document.getElementById("lastEarnings1D").innerText = `${le.perf_1d_pct >= 0 ? '+' : ''}${le.perf_1d_pct ? le.perf_1d_pct.toFixed(2) : 0}%`;
+        document.getElementById("lastEarnings1W").innerText = `${le.perf_1w_pct >= 0 ? '+' : ''}${le.perf_1w_pct ? le.perf_1w_pct.toFixed(2) : 0}%`;
+      }
+
+      // Table
+      const tb = document.getElementById("earningsTableBody");
+      if (q.historical_earnings && q.historical_earnings.length) {
+        tb.innerHTML = q.historical_earnings.map(r => `
+          <tr class="hover:bg-slate-50">
+            <td class="p-2.5 font-bold">${r.date}</td>
+            <td class="p-2.5 text-slate-500">${r.timing}</td>
+            <td class="p-2.5">${r.eps_estimate ? '$' + r.eps_estimate.toFixed(2) : 'N/A'}</td>
+            <td class="p-2.5 font-semibold">${r.eps_reported ? '$' + r.eps_reported.toFixed(2) : 'N/A'}</td>
+            <td class="p-2.5">${r.surprise_pct ? (r.surprise_pct >= 0 ? '+' : '') + r.surprise_pct.toFixed(1) + '%' : 'N/A'}</td>
+            <td class="p-2.5 font-bold ${r.beat_status === 'Beat' ? 'text-emerald-600' : 'text-rose-600'}">${r.beat_status}</td>
+            <td class="p-2.5 font-bold ${r.perf_1d_pct >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${r.perf_1d_pct ? (r.perf_1d_pct >= 0 ? '+' : '') + r.perf_1d_pct.toFixed(2) + '%' : 'N/A'}</td>
+            <td class="p-2.5 font-bold ${r.perf_1w_pct >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${r.perf_1w_pct ? (r.perf_1w_pct >= 0 ? '+' : '') + r.perf_1w_pct.toFixed(2) + '%' : 'N/A'}</td>
+          </tr>
+        `).join("");
+      }
+    }
+
+    function renderGrowthCard(valId, subId, item) {
+      const valEl = document.getElementById(valId);
+      const subEl = document.getElementById(subId);
+      if (item && item.available) {
+        const sign = item.growth_pct >= 0 ? "+" : "";
+        valEl.innerText = `${sign}${item.growth_pct.toFixed(2)}%`;
+        valEl.className = `text-xl sm:text-2xl font-extrabold mt-1 ${item.growth_pct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`;
+        subEl.innerText = `Start: $${item.start_price.toFixed(2)} (${item.start_date})`;
+      } else {
+        valEl.innerText = "N/A";
+        subEl.innerText = "Not enough history";
+      }
+    }
+
+    // Chart Fetching & Rendering via Chart.js
+    async function fetchChart(symbol, period) {
+      const res = await fetch(`/api/chart/${symbol}?period=${period}`);
+      const json = await res.json();
+      const records = json.data;
+      if (!records || !records.length) return;
+
+      const labels = records.map(r => r.date);
+      const growths = records.map(r => r.growth_pct);
+      const closes = records.map(r => r.close);
+
+      const startP = closes[0];
+      const endP = closes[closes.length - 1];
+      const retP = growths[growths.length - 1];
+      const sign = retP >= 0 ? "+" : "";
+      document.getElementById("chartSummary").innerHTML = `Start: <b>$${startP.toFixed(2)}</b> ➔ Current: <b>$${endP.toFixed(2)}</b> | Return: <b class="${retP >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${sign}${retP.toFixed(2)}%</b>`;
+
+      const ctx = document.getElementById("stockChart").getContext("2d");
+      if (stockChartInstance) stockChartInstance.destroy();
+
+      const isPositive = retP >= 0;
+      const lineColor = isPositive ? "#059669" : "#DC2626";
+      const fillColor = isPositive ? "rgba(5, 150, 105, 0.08)" : "rgba(220, 38, 38, 0.08)";
+
+      stockChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Cumulative Growth (%)',
+            data: growths,
+            borderColor: lineColor,
+            backgroundColor: fillColor,
+            fill: true,
+            tension: 0.15,
+            borderWidth: 2.5,
+            pointRadius: records.length > 50 ? 0 : 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ` Growth: ${ctx.parsed.y >= 0 ? '+' : ''}${ctx.parsed.y.toFixed(2)}%`
+              }
+            }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#64748B', maxTicksLimit: 8 } },
+            y: {
+              grid: { color: '#F1F5F9' },
+              ticks: { color: '#64748B', callback: (val) => `${val}%` }
+            }
+          }
+        }
+      });
+    }
+
+    // Populate Expirations Dropdown
+    function populateExpirationsDropdown(expirations) {
+      const sel = document.getElementById("optExpInput");
+      if (!expirations || !expirations.length) {
+        sel.innerHTML = `<option value="${new Date().toISOString().split('T')[0]}">No Options Available</option>`;
+        return;
+      }
+      sel.innerHTML = expirations.map((e, idx) => `
+        <option value="${e.date}" ${idx === 2 ? 'selected' : ''}>${e.label}</option>
+      `).join("");
+    }
+
+    // Option Params Changed (Debounced for instant reactivity without page jumps)
+    function onOptionParamsChanged() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        triggerOptionAnalysis();
+      }, 250);
+    }
+
+    // Analyze Option via API
+    async function triggerOptionAnalysis() {
+      const type = document.getElementById("optTypeInput").value;
+      const exp = document.getElementById("optExpInput").value;
+      const strike = parseFloat(document.getElementById("optStrikeInput").value) || 300;
+      const bid = parseFloat(document.getElementById("optBidInput").value) || 3.0;
+
+      if (!exp) return;
+
+      try {
+        const url = `/api/options/analyze?symbol=${currentTicker}&option_type=${type}&strike=${strike}&bid=${bid}&expiration=${exp}&contracts=1`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Could not evaluate option");
+        const trade = await res.json();
+        renderOptionResults(trade);
+      } catch (err) {
+        console.error("Option analyze error:", err);
+      }
+    }
+
+    // Render Option Results & Interactive Chart
+    function renderOptionResults(trade) {
+      const card = document.getElementById("optionVerdictCard");
+      card.style.borderLeftColor = trade.verdict_color;
+      card.style.backgroundColor = `${trade.verdict_color}0A`;
+
+      const titleEl = document.getElementById("optionVerdictTitle");
+      titleEl.innerText = `${trade.verdict_icon} ${trade.verdict}`;
+      titleEl.style.color = trade.verdict_color;
+
+      const scoreEl = document.getElementById("optionScoreBadge");
+      scoreEl.innerText = `${trade.verdict_score >= 0 ? '+' : ''}${trade.verdict_score} / 100`;
+
+      document.getElementById("optionVerdictSummary").innerText = trade.summary_text;
+
+      document.getElementById("optionRationales").innerHTML = trade.rationales.map(r => `<li>${r}</li>`).join("");
+      document.getElementById("optionWarnings").innerHTML = trade.warnings.length
+        ? trade.warnings.map(w => `<li>${w}</li>`).join("")
+        : `<li>✅ No severe friction points detected.</li>`;
+
+      document.getElementById("optTotalCost").innerText = `$${trade.total_investment.toFixed(2)}`;
+      document.getElementById("optBreakeven").innerText = `$${trade.breakeven_price.toFixed(2)}`;
+      document.getElementById("optReqMove").innerText = `Required Move: ${trade.move_to_breakeven_pct >= 0 ? '+' : ''}${trade.move_to_breakeven_pct.toFixed(1)}%`;
+      document.getElementById("optMaxProfit").innerText = trade.max_profit_str;
+      document.getElementById("optPoP").innerText = `${trade.pop.toFixed(1)}%`;
+      document.getElementById("optTheta").innerText = `-$${Math.abs(trade.greeks.theta_daily_total).toFixed(2)} / day`;
+
+      // Render Options P&L Chart
+      renderOptionsPnlChart(trade);
+
+      // Render Scenario Matrix Table
+      renderScenarioTable(trade.scenarios);
+    }
+
+    function renderOptionsPnlChart(trade) {
+      const ctx = document.getElementById("optionsPnlChart").getContext("2d");
+      if (optionsPnlChartInstance) optionsPnlChartInstance.destroy();
+
+      const curve = trade.curve_data;
+      optionsPnlChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: curve.prices.map(p => `$${p}`),
+          datasets: [
+            {
+              label: 'At Expiration (0 DTE)',
+              data: curve.pnl_exp,
+              borderColor: '#0F172A',
+              borderWidth: 3,
+              pointRadius: 0,
+              tension: 0.1
+            },
+            {
+              label: 'Halfway to Expiration',
+              data: curve.pnl_halfway,
+              borderColor: '#2563EB',
+              borderWidth: 2,
+              borderDash: [5, 5],
+              pointRadius: 0,
+              tension: 0.1
+            },
+            {
+              label: 'Today (T+0)',
+              data: curve.pnl_today,
+              borderColor: '#8B5CF6',
+              borderWidth: 2,
+              borderDash: [2, 2],
+              pointRadius: 0,
+              tension: 0.1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12 } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ` ${ctx.dataset.label}: $${ctx.parsed.y.toLocaleString()}`
+              }
+            }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#64748B', maxTicksLimit: 8 } },
+            y: {
+              grid: { color: '#F1F5F9' },
+              ticks: { color: '#64748B', callback: (val) => `$${val}` }
+            }
+          }
+        }
+      });
+    }
+
+    function renderScenarioTable(scenarios) {
+      const tb = document.getElementById("scenarioTableBody");
+      tb.innerHTML = scenarios.map(s => {
+        const isBE = s.label.includes("Breakeven");
+        const isCurr = s.label.includes("Current");
+        const rowBg = isBE ? "bg-emerald-50/70 font-bold" : (isCurr ? "bg-blue-50/70 font-bold" : "");
+        const pnlColor = s.pnl_exp_dollar >= 0 ? "text-emerald-700 font-bold" : "text-rose-700 font-bold";
+        return `
+          <tr class="${rowBg} hover:bg-slate-50">
+            <td class="p-2.5 font-bold">$${s.stock_price.toFixed(2)}</td>
+            <td class="p-2.5 text-slate-600">${s.stock_change_pct >= 0 ? '+' : ''}${s.stock_change_pct.toFixed(1)}%</td>
+            <td class="p-2.5">$${s.option_val_exp.toFixed(2)}</td>
+            <td class="p-2.5 ${pnlColor}">${s.pnl_exp_dollar >= 0 ? '+' : ''}$${s.pnl_exp_dollar.toFixed(2)}</td>
+            <td class="p-2.5 ${pnlColor}">${s.roi_exp_pct >= 0 ? '+' : ''}${s.roi_exp_pct.toFixed(1)}%</td>
+            <td class="p-2.5"><span class="px-2 py-0.5 rounded text-xs ${isBE ? 'bg-emerald-200 text-emerald-900' : (isCurr ? 'bg-blue-200 text-blue-900' : 'text-slate-400')}">${s.label || '-'}</span></td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function formatNumber(num) {
+      if (!num) return "0";
+      if (num >= 1e9) return (num / 1e9).toFixed(1) + "B";
+      if (num >= 1e6) return (num / 1e6).toFixed(1) + "M";
+      if (num >= 1e3) return (num / 1e3).toFixed(1) + "K";
+      return num.toLocaleString();
+    }
+
+    function formatDollars(num) {
+      if (!num) return "$0";
+      if (num >= 1e12) return "$" + (num / 1e12).toFixed(2) + "T";
+      if (num >= 1e9) return "$" + (num / 1e9).toFixed(2) + "B";
+      if (num >= 1e6) return "$" + (num / 1e6).toFixed(2) + "M";
+      return "$" + num.toLocaleString();
+    }
+
+    // Initialize with default ticker on page load
+    window.addEventListener("DOMContentLoaded", () => {
+      searchTicker("AAPL");
+    });
+  </script>
+</body>
+</html>
