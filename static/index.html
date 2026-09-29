@@ -93,6 +93,10 @@
         <div class="flex md:flex-col items-baseline md:items-end justify-between md:justify-center">
           <div id="stockPrice" class="text-3xl sm:text-4xl font-extrabold text-slate-900">$329.40</div>
           <div id="stockDelta" class="text-sm sm:text-base font-bold text-rose-600 mt-0.5">-$9.00 (-2.66%)</div>
+          <div class="flex items-center space-x-2 mt-1.5 text-xs text-slate-400">
+            <span class="inline-flex items-center"><span class="w-2 h-2 bg-emerald-500 rounded-full mr-1.5 animate-pulse"></span>Live • <span id="lastUpdatedTime">Just now</span></span>
+            <button onclick="refreshCurrentStock()" class="text-blue-600 hover:text-blue-800 font-bold hover:underline">🔄 Refresh</button>
+          </div>
         </div>
       </div>
 
@@ -525,8 +529,13 @@
       fetchChart(currentTicker, period);
     }
 
+    // Force refresh live data
+    async function refreshCurrentStock() {
+      await searchTicker(currentTicker, true);
+    }
+
     // Search or select ticker
-    async function searchTicker(sym) {
+    async function searchTicker(sym, forceRefresh = false) {
       if (!sym) return;
       currentTicker = sym.trim().toUpperCase();
       document.getElementById("desktopTickerInput").value = currentTicker;
@@ -536,8 +545,9 @@
       document.getElementById("contentArea").classList.add("opacity-40");
 
       try {
+        const stockUrl = `/api/stock/${currentTicker}` + (forceRefresh ? '?refresh=true' : '');
         const [stockRes, expsRes] = await Promise.all([
-          fetch(`/api/stock/${currentTicker}`),
+          fetch(stockUrl),
           fetch(`/api/options/expirations/${currentTicker}`)
         ]);
 
@@ -581,6 +591,10 @@
       const deltaEl = document.getElementById("stockDelta");
       deltaEl.innerText = `${sign}$${data.change_abs.toFixed(2)} (${sign}${data.change_pct.toFixed(2)}%)`;
       deltaEl.className = `text-sm sm:text-base font-bold mt-0.5 ${data.change_abs >= 0 ? 'text-emerald-600' : 'text-rose-600'}`;
+
+      if (data.last_updated) {
+        document.getElementById("lastUpdatedTime").innerText = data.last_updated;
+      }
 
       // Growth
       renderGrowthCard("growth1Y", "growth1YSub", data.growth["1_year"]);

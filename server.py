@@ -29,34 +29,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory LRU cache to prevent rate-limiting
+# In-memory LRU cache to prevent rate-limiting (90-second TTL)
 cache = {}
 
-def get_cached_analysis(symbol: str):
+def get_cached_analysis(symbol: str, force_refresh: bool = False):
     symbol = symbol.strip().upper()
     now = datetime.now()
-    if symbol in cache:
+    if not force_refresh and symbol in cache:
         entry = cache[symbol]
-        if (now - entry["time"]).total_seconds() < 120:
-            return entry["data"]
+        if (now - entry["time"]).total_seconds() < 90:
+            return entry["data"], entry["time"]
             
     analysis = sc.get_full_stock_analysis(symbol)
     cache[symbol] = {
         "time": now,
         "data": analysis
     }
-    return analysis
+    return analysis, now
 
 @app.get("/api/stock/{symbol}")
-def get_stock(symbol: str):
+def get_stock(symbol: str, refresh: bool = Query(False)):
     """
     Get full stock statistics, growth rates, volume, 2-week outlook, and quarterly results.
+    Pass ?refresh=true to bust the cache and force an immediate live market fetch.
     """
     try:
-        analysis = get_cached_analysis(symbol)
+        analysis, fetched_at = get_cached_analysis(symbol, force_refresh=refresh)
         raw = analysis["raw"]
         
-        # Serialize history-free summary
+        # Serialize history-free summary with live timestamp
         return {
             "symbol": raw["symbol"],
             "short_name": raw["short_name"],
@@ -78,6 +79,7 @@ def get_stock(symbol: str):
             "forward_pe": raw["forward_pe"],
             "beta": raw["beta"],
             "dividend_yield": raw["dividend_yield"],
+            "last_updated": fetched_at.strftime("%I:%M:%S %p"),
             "growth": analysis["growth"],
             "volume": analysis["volume"],
             "outlook": analysis["outlook"],
@@ -92,7 +94,7 @@ def get_chart_data(symbol: str, period: str = Query("6M", pattern="^(1W|1M|3M|6M
     Get sliced historical chart data with cumulative % growth, volume, and moving averages.
     """
     try:
-        analysis = get_cached_analysis(symbol)
+        analysis, _ = get_cached_analysis(symbol)
         hist = analysis["raw"]["history"]
         df_slice = sc.get_growth_chart_data(hist, period)
         
@@ -162,7 +164,7 @@ def analyze_option(
     Evaluate an option purchase: Breakeven, Greeks, PoP, P&L curve, and Buy/Avoid recommendation.
     """
     try:
-        analysis = get_cached_analysis(symbol)
+        analysis, _ = get_cached_analysis(symbol)
         curr_price = analysis["raw"]["current_price"]
         outlook = analysis["outlook"]
         
