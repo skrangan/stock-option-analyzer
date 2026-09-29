@@ -1,6 +1,7 @@
 """
 stock_core.py - Core data extraction, analytics, technical calculations,
 earnings reaction analysis, and 2-week outlook forecasting for stock analysis.
+Designed to be 100% pickle-serializable for caching with Streamlit.
 """
 
 import yfinance as yf
@@ -11,7 +12,8 @@ import pytz
 
 def get_stock_data(symbol: str) -> dict:
     """
-    Fetch comprehensive stock information, historical prices, and dividends/splits.
+    Fetch comprehensive stock information, historical prices, and raw data.
+    Does NOT return any unpicklable session/thread objects.
     """
     symbol = symbol.strip().upper()
     ticker = yf.Ticker(symbol)
@@ -32,6 +34,25 @@ def get_stock_data(symbol: str) -> dict:
     except Exception:
         info = {}
         
+    # Extract earnings and recommendations safely
+    earnings_dates = None
+    try:
+        earnings_dates = ticker.earnings_dates
+    except Exception:
+        earnings_dates = None
+        
+    recs_summary = None
+    try:
+        recs_summary = ticker.recommendations_summary
+    except Exception:
+        recs_summary = None
+        
+    calendar = None
+    try:
+        calendar = ticker.calendar
+    except Exception:
+        calendar = None
+
     # Latest trading row
     latest_row = hist.iloc[-1]
     prev_row = hist.iloc[-2] if len(hist) > 1 else latest_row
@@ -57,7 +78,6 @@ def get_stock_data(symbol: str) -> dict:
         pos_52 = 50.0
 
     return {
-        "ticker_obj": ticker,
         "symbol": symbol,
         "short_name": info.get("shortName") or info.get("longName") or symbol,
         "currency": info.get("currency", "USD"),
@@ -82,7 +102,10 @@ def get_stock_data(symbol: str) -> dict:
         "dividend_yield": (info.get("dividendYield") * 100) if info.get("dividendYield") else None,
         "eps_trailing": info.get("trailingEps"),
         "info": info,
-        "history": hist
+        "history": hist,
+        "earnings_dates": earnings_dates,
+        "recommendations_summary": recs_summary,
+        "calendar": calendar
     }
 
 def calculate_growth_metrics(hist: pd.DataFrame, curr_price: float) -> dict:
@@ -127,7 +150,6 @@ def calculate_growth_metrics(hist: pd.DataFrame, curr_price: float) -> dict:
                 "available": True
             }
         else:
-            # Not enough historical data for this window
             results[key] = {
                 "label": label,
                 "start_date": None,
@@ -170,12 +192,7 @@ def calculate_growth_metrics(hist: pd.DataFrame, curr_price: float) -> dict:
 
 def calculate_volume_metrics(hist: pd.DataFrame, curr_price: float, info: dict) -> dict:
     """
-    Extract and compute detailed volume metrics:
-    - Today's volume
-    - 10-day, 30-day, and 3-month average volume
-    - Relative volume (RVOL)
-    - Dollar volume traded
-    - Volume status description
+    Extract and compute detailed volume metrics.
     """
     latest_volume = int(info.get("regularMarketVolume") or hist["Volume"].iloc[-1])
     
@@ -214,14 +231,9 @@ def calculate_volume_metrics(hist: pd.DataFrame, curr_price: float, info: dict) 
         "volume_sentiment": volume_sentiment
     }
 
-def calculate_two_week_outlook(hist: pd.DataFrame, ticker: yf.Ticker, curr_price: float, info: dict) -> dict:
+def calculate_two_week_outlook(hist: pd.DataFrame, curr_price: float, info: dict, recs_summary: pd.DataFrame = None) -> dict:
     """
-    Synthesize a rigorous 2-week (10 trading days / 14 calendar days) outlook based on:
-    1. Short-term technical momentum (RSI, MACD, SMA 20/50 crossovers)
-    2. Trend slope and linear regression trajectory
-    3. Volatility cone (ATR and 20-day historical standard deviation)
-    4. Wall Street analyst consensus & price targets
-    5. Quantitative composite outlook score and plain-English rationale
+    Synthesize a rigorous 2-week outlook without requiring unpicklable Ticker instances.
     """
     closes = hist["Close"]
     
@@ -256,7 +268,6 @@ def calculate_two_week_outlook(hist: pd.DataFrame, ticker: yf.Ticker, curr_price
     # 4. Volatility & 2-Week Statistical Range
     returns = closes.pct_change().dropna()
     daily_vol = float(returns.tail(20).std()) if len(returns) >= 20 else 0.015
-    # 10 trading days forward volatility
     vol_10d = daily_vol * np.sqrt(10)
     
     # 14-day linear trend velocity
@@ -266,11 +277,10 @@ def calculate_two_week_outlook(hist: pd.DataFrame, ticker: yf.Ticker, curr_price
     poly = np.polyfit(x_vals, y_vals, 1)
     slope = float(poly[0])
     
-    # Trend projected change over 10 trading days (damped by 0.5 to prevent extreme extrapolation)
+    # Trend projected change over 10 trading days (damped by 0.7)
     trend_proj_change = slope * 10 * 0.7
     proj_center = curr_price + trend_proj_change
     
-    # Upper/lower bounds using 1.28 std dev (80% confidence interval)
     proj_upper = max(proj_center * (1 + vol_10d * 1.28), curr_price * (1 + vol_10d * 0.8))
     proj_lower = min(proj_center * (1 - vol_10d * 1.28), curr_price * (1 - vol_10d * 0.8))
     
@@ -287,18 +297,16 @@ def calculate_two_week_outlook(hist: pd.DataFrame, ticker: yf.Ticker, curr_price
         analyst_upside_pct = ((target_mean - curr_price) / curr_price) * 100
         
     rec_breakdown = {}
-    try:
-        recs = ticker.recommendations_summary
-        if recs is not None and not recs.empty:
-            rec_breakdown = recs.iloc[0].to_dict()
-    except Exception:
-        rec_breakdown = {}
+    if recs_summary is not None and not recs_summary.empty:
+        try:
+            rec_breakdown = recs_summary.iloc[0].to_dict()
+        except Exception:
+            rec_breakdown = {}
 
     # 6. Composite Score (-100 to +100)
     score = 0
     rationales = []
     
-    # Momentum factor (RSI)
     if rsi >= 75:
         score -= 15
         rationales.append(f"RSI is {rsi:.1f} (Overbought territory - risk of short-term pullback or consolidation).")
@@ -314,7 +322,6 @@ def calculate_two_week_outlook(hist: pd.DataFrame, ticker: yf.Ticker, curr_price
     else:
         rationales.append(f"RSI is {rsi:.1f} (Neutral momentum within the 45-55 corridor).")
         
-    # Moving Average factor
     if curr_price > sma20:
         score += 20
         rationales.append(f"Price is trading +{pct_from_sma20:.1f}% above its 20-Day moving average (${sma20:.2f}), confirming short-term uptrend.")
@@ -329,7 +336,6 @@ def calculate_two_week_outlook(hist: pd.DataFrame, ticker: yf.Ticker, curr_price
         score -= 15
         rationales.append(f"20-Day MA (${sma20:.2f}) is below 50-Day MA (${sma50:.2f}), showing bearish intermediate trend alignment.")
         
-    # MACD factor
     if macd_bullish:
         score += 15
         hist_trend = "widening" if latest_hist > 0 else "converging"
@@ -338,7 +344,6 @@ def calculate_two_week_outlook(hist: pd.DataFrame, ticker: yf.Ticker, curr_price
         score -= 15
         rationales.append(f"MACD line ({latest_macd:.2f}) is below Signal line ({latest_signal:.2f}), showing negative momentum pressure.")
         
-    # Trend Slope factor
     slope_pct_day = (slope / curr_price) * 100
     if slope_pct_day > 0.15:
         score += 15
@@ -349,7 +354,6 @@ def calculate_two_week_outlook(hist: pd.DataFrame, ticker: yf.Ticker, curr_price
     else:
         rationales.append(f"14-day price trajectory has been relatively flat ({slope_pct_day:+.2f}%/day).")
         
-    # Analyst factor
     if analyst_upside_pct is not None:
         if analyst_upside_pct > 10:
             score += 15
@@ -360,13 +364,12 @@ def calculate_two_week_outlook(hist: pd.DataFrame, ticker: yf.Ticker, curr_price
         else:
             rationales.append(f"Wall Street target (${target_mean:.2f}) is near parity ({analyst_upside_pct:+.1f}%).")
             
-    # Normalize score [-100, 100]
     score = max(-100, min(100, score))
     
     if score >= 50:
         verdict = "Bullish"
         verdict_icon = "🟢"
-        color = "#10B981" # Emerald
+        color = "#10B981"
         outlook_desc = "Strong technical tailwinds and momentum suggest upward price action over the next 2 weeks."
     elif score >= 20:
         verdict = "Moderately Bullish"
@@ -376,7 +379,7 @@ def calculate_two_week_outlook(hist: pd.DataFrame, ticker: yf.Ticker, curr_price
     elif score > -20:
         verdict = "Neutral / Rangebound"
         verdict_icon = "⚪"
-        color = "#F59E0B" # Amber
+        color = "#F59E0B"
         outlook_desc = "Mixed signals suggest consolidation or range-bound trading over the next 2 weeks."
     elif score > -50:
         verdict = "Moderately Bearish"
@@ -386,19 +389,17 @@ def calculate_two_week_outlook(hist: pd.DataFrame, ticker: yf.Ticker, curr_price
     else:
         verdict = "Bearish"
         verdict_icon = "🔴"
-        color = "#EF4444" # Red
+        color = "#EF4444"
         outlook_desc = "Significant technical headwind and negative momentum suggest caution over the next 2 weeks."
 
-    # Build 10-day forward calendar forecast dates
     forward_dates = []
     curr_dt = hist.index[-1].date()
     step_dt = curr_dt
     days_added = 0
     while days_added < 10:
         step_dt += timedelta(days=1)
-        if step_dt.weekday() < 5:  # Monday to Friday
+        if step_dt.weekday() < 5:
             days_added += 1
-            # Interpolated values
             frac = days_added / 10.0
             p_val = curr_price + (proj_center - curr_price) * frac
             band_up = curr_price + (proj_upper - curr_price) * np.sqrt(frac)
@@ -441,55 +442,48 @@ def calculate_two_week_outlook(hist: pd.DataFrame, ticker: yf.Ticker, curr_price
         "forward_projection": forward_dates
     }
 
-def calculate_quarterly_results(ticker: yf.Ticker, hist: pd.DataFrame) -> dict:
+def calculate_quarterly_results(earnings_dates: pd.DataFrame, calendar: dict, hist: pd.DataFrame) -> dict:
     """
     Determine:
     1. Next quarterly results announcement date & countdown
     2. Last quarterly results announcement date & EPS beat/miss
     3. Stock performance after announcing the last quarterly results (1-day, 3-day, 1-week)
     4. Historical quarters performance table
+    Does NOT require a Ticker object.
     """
-    try:
-        ed = ticker.earnings_dates
-    except Exception:
-        ed = None
-        
+    ed = earnings_dates
     if ed is None or ed.empty:
-        # Check calendar as fallback
-        try:
-            cal = ticker.calendar
-            next_dates = cal.get("Earnings Date", []) if isinstance(cal, dict) else []
+        if calendar and isinstance(calendar, dict):
+            next_dates = calendar.get("Earnings Date", [])
             if next_dates:
                 next_d = next_dates[0]
                 return {
                     "has_earnings_data": True,
                     "is_etf_or_fund": False,
                     "next_earnings": {
-                        "date_str": str(next_d),
+                        "date": pd.Timestamp(next_d).strftime("%b %d, %Y"),
+                        "datetime_full": str(next_d),
                         "days_until": (pd.Timestamp(next_d).date() - datetime.now().date()).days,
                         "eps_estimate": None
                     },
                     "last_earnings": None,
                     "historical_earnings": []
                 }
-        except Exception:
-            pass
-            
         return {
             "has_earnings_data": False,
             "is_etf_or_fund": True,
             "message": "Quarterly earnings reports are not available for this ticker (e.g., Index ETF, Mutual Fund, or delisted company)."
         }
 
-    # Normalize timezone
-    tz = ed.index.tz
+    ed_copy = ed.copy()
+    tz = ed_copy.index.tz
     if tz is None:
         tz = pytz.timezone("America/New_York")
-        ed.index = ed.index.tz_localize(tz)
+        ed_copy.index = ed_copy.index.tz_localize(tz)
     now_ts = pd.Timestamp.now(tz=tz)
     
     # 1. Next Earnings
-    future_ed = ed[ed.index > now_ts]
+    future_ed = ed_copy[ed_copy.index > now_ts]
     next_earnings = None
     if not future_ed.empty:
         next_row = future_ed.sort_index().iloc[0]
@@ -501,7 +495,6 @@ def calculate_quarterly_results(ticker: yf.Ticker, hist: pd.DataFrame) -> dict:
             "eps_estimate": next_row.get("EPS Estimate") if pd.notna(next_row.get("EPS Estimate")) else None
         }
         
-    # Align hist timezone
     hist_aligned = hist.copy()
     if hist_aligned.index.tz is None:
         hist_aligned.index = hist_aligned.index.tz_localize(tz)
@@ -510,7 +503,6 @@ def calculate_quarterly_results(ticker: yf.Ticker, hist: pd.DataFrame) -> dict:
         
     hist_dates = [d.date() for d in hist_aligned.index]
     
-    # Helper to calculate reaction for an earnings date
     def evaluate_earnings_reaction(ed_dt, row):
         ed_date = ed_dt.date()
         is_after_market = ed_dt.hour >= 16 or (ed_dt.hour >= 15 and ed_dt.minute >= 30)
@@ -591,11 +583,10 @@ def calculate_quarterly_results(ticker: yf.Ticker, hist: pd.DataFrame) -> dict:
             
         return rx_data
 
-    # 2. Past Earnings & Reactions
-    past_ed = ed[(ed.index <= now_ts) & ed["Reported EPS"].notna()]
+    # Past earnings
+    past_ed = ed_copy[(ed_copy.index <= now_ts) & ed_copy["Reported EPS"].notna()]
     if past_ed.empty:
-        # Fallback to any past date even without Reported EPS
-        past_ed = ed[ed.index <= now_ts]
+        past_ed = ed_copy[ed_copy.index <= now_ts]
         
     last_earnings = None
     historical_list = []
@@ -605,7 +596,6 @@ def calculate_quarterly_results(ticker: yf.Ticker, hist: pd.DataFrame) -> dict:
         last_dt = sorted_past.index[0]
         last_earnings = evaluate_earnings_reaction(last_dt, sorted_past.iloc[0])
         
-        # Collect past 4-6 quarters for historical table
         for dt_idx, row_data in sorted_past.head(6).iterrows():
             historical_list.append(evaluate_earnings_reaction(dt_idx, row_data))
             
@@ -615,6 +605,29 @@ def calculate_quarterly_results(ticker: yf.Ticker, hist: pd.DataFrame) -> dict:
         "next_earnings": next_earnings,
         "last_earnings": last_earnings,
         "historical_earnings": historical_list
+    }
+
+def get_full_stock_analysis(symbol: str) -> dict:
+    """
+    Convenience method that computes all data, metrics, volume, outlook, and earnings
+    at once into a 100% pickle-serializable dictionary.
+    """
+    raw = get_stock_data(symbol)
+    hist = raw["history"]
+    curr_price = raw["current_price"]
+    info = raw["info"]
+    
+    growth = calculate_growth_metrics(hist, curr_price)
+    volume = calculate_volume_metrics(hist, curr_price, info)
+    outlook = calculate_two_week_outlook(hist, curr_price, info, raw.get("recommendations_summary"))
+    quarterly = calculate_quarterly_results(raw.get("earnings_dates"), raw.get("calendar"), hist)
+    
+    return {
+        "raw": raw,
+        "growth": growth,
+        "volume": volume,
+        "outlook": outlook,
+        "quarterly": quarterly
     }
 
 def get_growth_chart_data(hist: pd.DataFrame, period: str) -> pd.DataFrame:
@@ -652,11 +665,9 @@ def get_growth_chart_data(hist: pd.DataFrame, period: str) -> pd.DataFrame:
     if df_period.empty:
         df_period = hist.tail(30).copy()
         
-    # Baseline for % growth
     base_price = float(df_period["Close"].iloc[0])
     df_period["Growth_Pct"] = ((df_period["Close"] - base_price) / base_price) * 100.0
     
-    # Calculate 20 and 50 SMAs on the sliced or full data
     df_period["SMA_20"] = hist["Close"].rolling(20).mean().loc[df_period.index]
     df_period["SMA_50"] = hist["Close"].rolling(50).mean().loc[df_period.index]
     df_period["SMA_200"] = hist["Close"].rolling(200).mean().loc[df_period.index]

@@ -139,20 +139,26 @@ if not ticker_sym:
     st.info("👈 Please enter or select a ticker symbol in the sidebar.")
     st.stop()
 
-# Fetch data with cache
+# Fetch data with cache (100% pickle-serializable)
 @st.cache_data(ttl=120)
 def load_data(symbol: str):
-    return sc.get_stock_data(symbol)
+    return sc.get_full_stock_analysis(symbol)
 
 try:
     with st.spinner(f"Fetching real-time data and stats for {ticker_sym}..."):
-        stock_data = load_data(ticker_sym)
+        analysis = load_data(ticker_sym)
 except Exception as e:
     st.error(f"❌ Could not load data for ticker **'{ticker_sym}'**: {e}")
     st.info("Please verify the ticker symbol (e.g. AAPL, MSFT, NVDA, SPY).")
     st.stop()
 
-# Unpack core data
+# Unpack analysis data
+stock_data = analysis["raw"]
+growth_metrics = analysis["growth"]
+volume_metrics = analysis["volume"]
+outlook = analysis["outlook"]
+quarterly = analysis["quarterly"]
+
 hist = stock_data["history"]
 curr_price = stock_data["current_price"]
 prev_close = stock_data["previous_close"]
@@ -163,12 +169,6 @@ currency = stock_data["currency"]
 sector = stock_data["sector"]
 industry = stock_data["industry"]
 exchange = stock_data["exchange"]
-
-# Calculate core metrics
-growth_metrics = sc.calculate_growth_metrics(hist, curr_price)
-volume_metrics = sc.calculate_volume_metrics(hist, curr_price, stock_data["info"])
-outlook = sc.calculate_two_week_outlook(hist, stock_data["ticker_obj"], curr_price, stock_data["info"])
-quarterly = sc.calculate_quarterly_results(stock_data["ticker_obj"], hist)
 
 # ----------------- HEADER SECTION -----------------
 head_col1, head_col2 = st.columns([3, 2])
@@ -336,7 +336,6 @@ st.subheader(f"📈 Stock Growth & Price Action ({selected_period})")
 df_slice = sc.get_growth_chart_data(hist, selected_period)
 
 if not df_slice.empty:
-    # Summary banner for selected period
     p_start = df_slice["Close"].iloc[0]
     p_end = df_slice["Close"].iloc[-1]
     p_high = df_slice["High"].max()
@@ -367,7 +366,6 @@ st.markdown("---")
 st.subheader("🔮 2-Week Stock Outlook (Next 10 Trading Days)")
 st.caption("Multi-source intelligence synthesizing Wall Street consensus, short-term momentum, moving averages, and statistical volatility bounds.")
 
-# Verdict Box
 box_bg = "rgba(16, 185, 129, 0.08)" if outlook["composite_score"] >= 20 else ("rgba(239, 68, 68, 0.08)" if outlook["composite_score"] <= -20 else "rgba(245, 158, 11, 0.08)")
 st.markdown(f"""
 <div class="outlook-box" style="background: {box_bg}; border-color: {outlook['verdict_color']};">
@@ -410,7 +408,6 @@ with out_col3:
     </div>
     """, unsafe_allow_html=True)
 
-# 2-Week Forecast Cone Chart & Rationale Side-by-Side
 cone_col, rat_col = st.columns([3, 2])
 
 with cone_col:
@@ -422,7 +419,6 @@ with rat_col:
     for r in outlook["rationales"]:
         st.markdown(f"- {r}")
 
-    # Wall Street Analyst breakdown
     st.markdown("#### 🏛️ Wall Street Consensus")
     if outlook.get("target_mean"):
         up_pct = outlook["analyst_upside_pct"]
@@ -448,7 +444,6 @@ if quarterly.get("is_etf_or_fund"):
 else:
     q_col1, q_col2 = st.columns(2)
 
-    # Next Quarterly Announcement
     with q_col1:
         st.markdown("### 🔔 Next Quarterly Results")
         next_q = quarterly.get("next_earnings")
@@ -472,7 +467,6 @@ else:
         else:
             st.info("Next earnings date is not yet confirmed by the company.")
 
-    # Last Quarterly Announcement & Post-Announcement Reaction
     with q_col2:
         st.markdown("### 📢 Last Quarterly Results & Performance")
         last_q = quarterly.get("last_earnings")
@@ -510,14 +504,12 @@ else:
         else:
             st.info("Last quarterly results details not available.")
 
-    # Historical Earnings Reaction Chart & Table
     hist_earnings = quarterly.get("historical_earnings", [])
     if hist_earnings:
         st.markdown("#### 📜 Historical Earnings Reactions (Past Quarters)")
         fig_earnings = charts.create_earnings_reaction_bar_chart(hist_earnings, ticker_sym)
         st.plotly_chart(fig_earnings, use_container_width=True)
 
-        # Tabular breakdown
         table_rows = []
         for r in hist_earnings:
             p1_val = f"{r['perf_1d_pct']:+.2f}%" if r.get("perf_1d_pct") is not None else "N/A"

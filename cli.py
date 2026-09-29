@@ -4,7 +4,7 @@ Usage:
     python cli.py <TICKER>
 Example:
     python cli.py AAPL
-    python cli.py NVDA
+    python cli.py GOOGL
 """
 
 import sys
@@ -24,19 +24,17 @@ def run_cli(symbol: str):
     print("=" * 65)
 
     try:
-        data = sc.get_stock_data(symbol)
+        analysis = sc.get_full_stock_analysis(symbol)
     except Exception as e:
         print(f"\n❌ Error: {e}")
         return
 
-    hist = data["history"]
+    data = analysis["raw"]
     curr_price = data["current_price"]
-    info = data["info"]
-
-    growth = sc.calculate_growth_metrics(hist, curr_price)
-    volume = sc.calculate_volume_metrics(hist, curr_price, info)
-    outlook = sc.calculate_two_week_outlook(hist, data["ticker_obj"], curr_price, info)
-    quarterly = sc.calculate_quarterly_results(data["ticker_obj"], hist)
+    growth = analysis["growth"]
+    volume = analysis["volume"]
+    outlook = analysis["outlook"]
+    quarterly = analysis["quarterly"]
 
     # 1. Company Header
     print(f"\n🏢 {data['short_name']} ({data['symbol']}) | Exchange: {data['exchange']}")
@@ -87,7 +85,6 @@ def run_cli(symbol: str):
     if quarterly.get("is_etf_or_fund"):
         print(f"  ℹ️ {quarterly['message']}")
     else:
-        # Next
         nq = quarterly.get("next_earnings")
         if nq:
             eps_str = f"${nq['eps_estimate']:.2f}" if nq.get("eps_estimate") is not None else "Pending"
@@ -95,7 +92,6 @@ def run_cli(symbol: str):
         else:
             print("  🔔 Next Quarterly Results: Not yet announced")
 
-        # Last
         lq = quarterly.get("last_earnings")
         if lq:
             print(f"\n  📢 Last Quarterly Results: {lq['date']} ({lq['timing']})")
@@ -115,5 +111,5 @@ def run_cli(symbol: str):
     print("\n" + "=" * 65 + "\n")
 
 if __name__ == "__main__":
-    ticker = sys.argv[1] if len(sys.argv) > 1 else "AAPL"
+    ticker = sys.argv[1] if len(sys.argv) > 1 else "GOOGL"
     run_cli(ticker)
