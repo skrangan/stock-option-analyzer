@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Stock & Option Analyzer</title>
+  <title>Kasthuri Rangan's Stock Analysis for Option Trading</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js CDN -->
@@ -22,17 +22,27 @@
 <body class="min-h-screen flex flex-col antialiased">
 
   <!-- Top Sticky Navigation Bar -->
-  <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 py-3 sm:px-6">
+  <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-3 sm:px-6">
     <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
       <div class="flex items-center justify-between w-full sm:w-auto">
-        <div class="flex items-center space-x-2">
-          <span class="text-2xl">📈</span>
-          <span class="font-extrabold text-lg sm:text-xl tracking-tight text-slate-900">AlphaStock & Option</span>
+        <div class="flex items-center space-x-2.5">
+          <span class="text-2xl sm:text-3xl">📈</span>
+          <div>
+            <span class="font-extrabold text-base sm:text-lg tracking-tight text-slate-900 block leading-tight">Kasthuri Rangan's Stock Analysis</span>
+            <div class="flex items-center space-x-2 mt-0.5">
+              <span class="text-[11px] font-bold text-blue-600 uppercase tracking-wide">For Option Trading</span>
+              <span class="text-slate-300 hidden sm:inline">•</span>
+              <a href="https://www.linkedin.com/in/skrangan/" target="_blank" rel="noopener noreferrer" class="hidden sm:inline-flex items-center space-x-1 text-[11px] font-semibold text-sky-700 hover:text-sky-900 hover:underline">
+                <svg class="w-3 h-3 fill-current text-sky-600" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+                <span>LinkedIn</span>
+              </a>
+            </div>
+          </div>
         </div>
         <!-- Mobile Phone Friendly Ticker Search -->
         <div class="sm:hidden flex items-center space-x-1">
-          <input type="text" id="mobileTickerInput" value="AAPL" class="w-24 uppercase px-2.5 py-1.5 text-sm font-bold border border-slate-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:outline-none">
-          <button onclick="searchTicker(document.getElementById('mobileTickerInput').value)" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold">Go</button>
+          <input type="text" id="mobileTickerInput" value="AAPL" class="w-20 uppercase px-2 py-1.5 text-xs font-bold border border-slate-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <button onclick="searchTicker(document.getElementById('mobileTickerInput').value)" class="bg-blue-600 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold">Go</button>
         </div>
       </div>
 
@@ -535,8 +545,20 @@
   </main>
 
   <!-- Footer -->
-  <footer class="bg-white border-t border-slate-200 py-4 px-6 text-center text-xs text-slate-400">
-    AlphaStock & Option Analysis System • Real-Time Quantitative Intelligence • Works on Desktop & Mobile
+  <footer class="bg-white border-t border-slate-200 py-5 px-6">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-3">
+      <div class="text-center sm:text-left">
+        <span class="font-extrabold text-slate-900">Kasthuri Rangan's Stock Analysis for Option Trading</span>
+        <span class="block sm:inline sm:ml-2 text-slate-400">• Real-Time Quantitative Intelligence • Mobile & Desktop</span>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span class="text-slate-500">Created by</span>
+        <a href="https://www.linkedin.com/in/skrangan/" target="_blank" rel="noopener noreferrer" class="inline-flex items-center space-x-1.5 font-bold text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 px-3 py-1.5 rounded-lg border border-sky-200 transition">
+          <svg class="w-3.5 h-3.5 fill-current text-sky-600" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+          <span>Kasthuri Rangan (LinkedIn)</span>
+        </a>
+      </div>
+    </div>
   </footer>
 
   <!-- Frontend Logic & Chart.js Engine -->

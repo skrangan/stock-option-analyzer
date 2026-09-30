@@ -1,8 +1,10 @@
-# 📈 Stock Analysis & Option Decision Platform
+# 📈 Kasthuri Rangan's Stock Analysis for Option Trading
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/skrangan/stock-option-analyzer)
 
-A modern, high-performance, mobile-responsive stock analysis and option decision application. It features both a lightweight mobile SPA (`FastAPI` + `Tailwind` + `Chart.js`) and a rich desktop dashboard (`Streamlit` + `Plotly`), providing real-time equity statistics, multi-period growth tracking, volume analytics, a multi-source 2-week quantitative outlook forecast, quarterly earnings performance reactions, and a Black-Scholes option purchase simulator.
+Created by **[Kasthuri Rangan](https://www.linkedin.com/in/skrangan/)**
+
+A modern, high-performance, mobile-responsive stock analysis and option decision platform. Built with **FastAPI**, **Tailwind CSS**, and **Chart.js**, it provides real-time equity statistics, multi-period growth tracking, volume analytics, a multi-source 2-week quantitative outlook forecast, quarterly earnings performance reactions, a Black-Scholes option purchase simulator, and a **Delta vs. Theta Trounce Engine**.
 
 ---
 
@@ -96,16 +98,9 @@ To access your app from anywhere in the world on your phone without leaving your
 
 ---
 
-### Option 3: Streamlit Interactive Dashboard
-Full desktop analytical dashboard with Plotly charts:
-```bash
-./run.sh
-```
-Opens in your browser at `http://localhost:8501`.
-
 ---
 
-### Option 4: Terminal Command-Line Interface (CLI)
+### Option 3: Terminal Command-Line Interface (CLI)
 For rapid terminal lookup of any stock ticker or option:
 ```bash
 /opt/anaconda3/bin/python cli.py AAPL
@@ -116,9 +111,11 @@ For rapid terminal lookup of any stock ticker or option:
 
 ## 📁 Project Structure
 
-- [`app.py`](file:///Users/skrangan/Documents/Stock%20analysis/app.py): The main Streamlit interactive web dashboard.
-- [`stock_core.py`](file:///Users/skrangan/Documents/Stock%20analysis/stock_core.py): Core data engine containing all calculations for growth, volume, 2-week outlook, and earnings reactions.
-- [`charts.py`](file:///Users/skrangan/Documents/Stock%20analysis/charts.py): Plotly charting module (Growth %, Candlesticks, 2-Week Forecast Cone, Earnings Reaction Bars).
-- [`cli.py`](file:///Users/skrangan/Documents/Stock%20analysis/cli.py): Fast terminal-based stock analysis tool.
-- [`run.sh`](file:///Users/skrangan/Documents/Stock%20analysis/run.sh): One-click launch script.
+- [`server.py`](file:///Users/skrangan/Documents/Stock%20analysis/server.py): High-performance FastAPI backend with real-time cached REST endpoints.
+- [`static/index.html`](file:///Users/skrangan/Documents/Stock%20analysis/static/index.html): Responsive single-page application (Tailwind CSS + Chart.js) with live calculations, dynamic expirations, and Delta vs. Theta trounce analytics.
+- [`stock_core.py`](file:///Users/skrangan/Documents/Stock%20analysis/stock_core.py): Core data engine for price stats, multi-period growth, volume/RVOL, 2-week quantitative outlook, and quarterly results.
+- [`options_core.py`](file:///Users/skrangan/Documents/Stock%20analysis/options_core.py): Quantitative option engine with Black-Scholes Greeks, dynamic expiration calendars, PoP, and the **Delta vs. Theta Trounce Model**.
+- [`cli.py`](file:///Users/skrangan/Documents/Stock%20analysis/cli.py): Fast terminal-based stock and option analysis tool.
+- [`run_web.sh`](file:///Users/skrangan/Documents/Stock%20analysis/run_web.sh): Local launcher for the FastAPI application.
+- [`render.yaml`](file:///Users/skrangan/Documents/Stock%20analysis/render.yaml): Render Blueprint for automated cloud deployment.
 - [`requirements.txt`](file:///Users/skrangan/Documents/Stock%20analysis/requirements.txt): Python dependency specification.

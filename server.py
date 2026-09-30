@@ -36,7 +36,7 @@ def sanitize_for_json(obj):
     return obj
 
 app = FastAPI(
-    title="Stock & Option Analysis API",
+    title="Kasthuri Rangan's Stock Analysis for Option Trading",
     description="Real-time stock analytics, 2-week outlook, quarterly results, and option P&L simulator.",
     version="2.0.0"
 )
