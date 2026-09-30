@@ -4,6 +4,7 @@ __pycache__/
 .streamlit/
 .env
 .env.*
+!.env.example
 .keys
 *.key
 *.pem
