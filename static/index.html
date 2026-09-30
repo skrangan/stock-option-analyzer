@@ -559,11 +559,20 @@
         populateExpirationsDropdown(expsData.expirations);
         await fetchChart(currentTicker, currentPeriod);
 
+    function safeNum(v) {
+      return (v !== null && v !== undefined && !isNaN(v) && typeof v === 'number');
+    }
+    function fmtPrice(v, dec = 2) {
+      return safeNum(v) ? `$${v.toFixed(dec)}` : "N/A";
+    }
+
         // Pre-fill default strike & bid
         const p = currentStockData.current_price;
-        const suggestedStrike = Math.round(p / 5) * 5;
-        document.getElementById("optStrikeInput").value = suggestedStrike;
-        document.getElementById("optBidInput").value = Math.max(1, (p * 0.02).toFixed(2));
+        if (safeNum(p)) {
+          const suggestedStrike = Math.round(p / 5) * 5;
+          document.getElementById("optStrikeInput").value = suggestedStrike;
+          document.getElementById("optBidInput").value = Math.max(1, (p * 0.02).toFixed(2));
+        }
 
         if (activeMainTab === "options") {
           triggerOptionAnalysis();
@@ -578,88 +587,117 @@
 
     // Render Stock Details
     function renderStockView(data) {
-      document.getElementById("stockName").innerText = data.short_name;
+      document.getElementById("stockName").innerText = data.short_name || data.symbol;
       document.getElementById("stockSymbolBadge").innerText = data.symbol;
-      document.getElementById("stockExchange").innerText = data.exchange;
-      document.getElementById("stockSector").innerText = data.sector;
-      document.getElementById("stockIndustry").innerText = data.industry;
+      document.getElementById("stockExchange").innerText = data.exchange || "Stock";
+      document.getElementById("stockSector").innerText = data.sector || "N/A";
+      document.getElementById("stockIndustry").innerText = data.industry || "N/A";
       document.getElementById("bannerTicker").innerText = data.symbol;
-      document.getElementById("optStockPrice").innerText = `$${data.current_price.toFixed(2)}`;
+      document.getElementById("optStockPrice").innerText = fmtPrice(data.current_price);
 
-      document.getElementById("stockPrice").innerText = `$${data.current_price.toFixed(2)}`;
-      const sign = data.change_abs >= 0 ? "+" : "";
+      document.getElementById("stockPrice").innerText = fmtPrice(data.current_price);
       const deltaEl = document.getElementById("stockDelta");
-      deltaEl.innerText = `${sign}$${data.change_abs.toFixed(2)} (${sign}${data.change_pct.toFixed(2)}%)`;
-      deltaEl.className = `text-sm sm:text-base font-bold mt-0.5 ${data.change_abs >= 0 ? 'text-emerald-600' : 'text-rose-600'}`;
+      if (safeNum(data.change_abs) && safeNum(data.change_pct)) {
+        const sign = data.change_abs >= 0 ? "+" : "";
+        deltaEl.innerText = `${sign}$${data.change_abs.toFixed(2)} (${sign}${data.change_pct.toFixed(2)}%)`;
+        deltaEl.className = `text-sm sm:text-base font-bold mt-0.5 ${data.change_abs >= 0 ? 'text-emerald-600' : 'text-rose-600'}`;
+      } else {
+        deltaEl.innerText = "--";
+        deltaEl.className = "text-sm sm:text-base font-bold mt-0.5 text-slate-500";
+      }
 
       if (data.last_updated) {
         document.getElementById("lastUpdatedTime").innerText = data.last_updated;
       }
 
       // Growth
-      renderGrowthCard("growth1Y", "growth1YSub", data.growth["1_year"]);
-      renderGrowthCard("growth6M", "growth6MSub", data.growth["6_month"]);
-      renderGrowthCard("growth3M", "growth3MSub", data.growth["3_month"]);
-      renderGrowthCard("growth1W", "growth1WSub", data.growth["1_week"]);
+      renderGrowthCard("growth1Y", "growth1YSub", data.growth ? data.growth["1_year"] : null);
+      renderGrowthCard("growth6M", "growth6MSub", data.growth ? data.growth["6_month"] : null);
+      renderGrowthCard("growth3M", "growth3MSub", data.growth ? data.growth["3_month"] : null);
+      renderGrowthCard("growth1W", "growth1WSub", data.growth ? data.growth["1_week"] : null);
 
       // Volume
-      document.getElementById("volToday").innerText = formatNumber(data.volume.current_volume);
-      document.getElementById("volRVOL").innerText = `${data.volume.rvol_10d.toFixed(2)}x`;
-      document.getElementById("volStatus").innerText = data.volume.volume_status;
-      document.getElementById("vol10D").innerText = formatNumber(data.volume.avg_volume_10d);
-      document.getElementById("vol3M").innerText = `3M Avg: ${formatNumber(data.volume.avg_volume_3m)}`;
-      document.getElementById("volDollar").innerText = formatDollars(data.volume.dollar_volume);
+      if (data.volume) {
+        document.getElementById("volToday").innerText = formatNumber(data.volume.current_volume);
+        document.getElementById("volRVOL").innerText = safeNum(data.volume.rvol_10d) ? `${data.volume.rvol_10d.toFixed(2)}x` : "N/A";
+        document.getElementById("volStatus").innerText = data.volume.volume_status || "Normal";
+        document.getElementById("vol10D").innerText = formatNumber(data.volume.avg_volume_10d);
+        document.getElementById("vol3M").innerText = `3M Avg: ${formatNumber(data.volume.avg_volume_3m)}`;
+        document.getElementById("volDollar").innerText = formatDollars(data.volume.dollar_volume);
+      }
 
       // Valuation
       document.getElementById("valMarketCap").innerText = formatDollars(data.market_cap);
-      document.getElementById("valPE").innerText = data.trailing_pe ? data.trailing_pe.toFixed(1) : "N/A";
-      document.getElementById("valFwdPE").innerText = data.forward_pe ? data.forward_pe.toFixed(1) : "N/A";
-      document.getElementById("valBeta").innerText = data.beta ? data.beta.toFixed(2) : "N/A";
-      document.getElementById("val52W").innerText = `$${data.fifty_two_week_low.toFixed(0)} - $${data.fifty_two_week_high.toFixed(0)}`;
+      document.getElementById("valPE").innerText = safeNum(data.trailing_pe) ? data.trailing_pe.toFixed(1) : "N/A";
+      document.getElementById("valFwdPE").innerText = safeNum(data.forward_pe) ? data.forward_pe.toFixed(1) : "N/A";
+      document.getElementById("valBeta").innerText = safeNum(data.beta) ? data.beta.toFixed(2) : "N/A";
+      const l52 = safeNum(data.fifty_two_week_low) ? `$${data.fifty_two_week_low.toFixed(0)}` : "N/A";
+      const h52 = safeNum(data.fifty_two_week_high) ? `$${data.fifty_two_week_high.toFixed(0)}` : "N/A";
+      document.getElementById("val52W").innerText = `${l52} - ${h52}`;
 
       // Outlook
-      const out = data.outlook;
+      const out = data.outlook || {};
       const bEl = document.getElementById("outlookBadge");
-      bEl.innerText = `${out.verdict_icon} ${out.verdict}`;
-      bEl.style.backgroundColor = `${out.verdict_color}18`;
-      bEl.style.color = out.verdict_color;
-      bEl.style.borderColor = `${out.verdict_color}60`;
+      bEl.innerText = `${out.verdict_icon || '⚖️'} ${out.verdict || 'Neutral'}`;
+      bEl.style.backgroundColor = `${out.verdict_color || '#3B82F6'}18`;
+      bEl.style.color = out.verdict_color || '#3B82F6';
+      bEl.style.borderColor = `${out.verdict_color || '#3B82F6'}60`;
 
-      document.getElementById("outlookTarget").innerText = `$${out.projected_target_2w.toFixed(2)} (${out.expected_change_pct >= 0 ? '+' : ''}${out.expected_change_pct.toFixed(2)}%)`;
-      document.getElementById("outlookCorridor").innerText = `$${out.expected_range_lower.toFixed(2)} - $${out.expected_range_upper.toFixed(2)}`;
-      document.getElementById("outlookVol").innerText = `±${out.expected_volatility_2w_pct.toFixed(2)}%`;
+      if (safeNum(out.projected_target_2w) && safeNum(out.expected_change_pct)) {
+        const sign = out.expected_change_pct >= 0 ? '+' : '';
+        document.getElementById("outlookTarget").innerText = `$${out.projected_target_2w.toFixed(2)} (${sign}${out.expected_change_pct.toFixed(2)}%)`;
+      } else {
+        document.getElementById("outlookTarget").innerText = "Rangebound / Calculating";
+      }
+
+      if (safeNum(out.expected_range_lower) && safeNum(out.expected_range_upper)) {
+        document.getElementById("outlookCorridor").innerText = `$${out.expected_range_lower.toFixed(2)} - $${out.expected_range_upper.toFixed(2)}`;
+      } else {
+        document.getElementById("outlookCorridor").innerText = "N/A";
+      }
+
+      document.getElementById("outlookVol").innerText = safeNum(out.expected_volatility_2w_pct) ? `±${out.expected_volatility_2w_pct.toFixed(2)}%` : "N/A";
 
       const rList = document.getElementById("outlookRationales");
-      rList.innerHTML = out.rationales.map(r => `<li>${r}</li>`).join("");
+      if (out.rationales && out.rationales.length) {
+        rList.innerHTML = out.rationales.map(r => `<li>${r}</li>`).join("");
+      } else {
+        rList.innerHTML = "<li>Technical momentum indicators within normal historical bands.</li>";
+      }
 
       const aEl = document.getElementById("outlookAnalyst");
-      if (out.target_mean) {
+      if (out && safeNum(out.target_mean)) {
+        const upP = safeNum(out.analyst_upside_pct) ? ` (${out.analyst_upside_pct >= 0 ? '+' : ''}${out.analyst_upside_pct.toFixed(1)}% move)` : "";
+        const lowP = safeNum(out.target_low) ? `$${out.target_low.toFixed(2)}` : "N/A";
+        const highP = safeNum(out.target_high) ? `$${out.target_high.toFixed(2)}` : "N/A";
         aEl.innerHTML = `
-          <div>• Consensus: <b>${out.recommendation_key}</b> (${out.num_analysts} analysts)</div>
-          <div>• Mean Target: <b>$${out.target_mean.toFixed(2)}</b> (${out.analyst_upside_pct >= 0 ? '+' : ''}${out.analyst_upside_pct.toFixed(1)}% move)</div>
-          <div>• Range: $${out.target_low.toFixed(2)} (Low) ➔ $${out.target_high.toFixed(2)} (High)</div>
+          <div>• Consensus: <b>${out.recommendation_key || 'Hold'}</b> (${out.num_analysts || 0} analysts)</div>
+          <div>• Mean Target: <b>$${out.target_mean.toFixed(2)}</b>${upP}</div>
+          <div>• Range: ${lowP} (Low) ➔ ${highP} (High)</div>
         `;
       } else {
         aEl.innerText = "No analyst targets available for this ticker.";
       }
 
       // Quarterly
-      const q = data.quarterly;
+      const q = data.quarterly || {};
       if (q.next_earnings) {
-        document.getElementById("nextEarningsDate").innerText = q.next_earnings.date;
-        document.getElementById("nextEarningsBadge").innerText = `In ~${q.next_earnings.days_until} days`;
+        document.getElementById("nextEarningsDate").innerText = q.next_earnings.date || "Scheduled";
+        document.getElementById("nextEarningsBadge").innerText = q.next_earnings.days_until !== null ? `In ~${q.next_earnings.days_until} days` : "Upcoming";
+        const epsEst = safeNum(q.next_earnings.eps_estimate) ? `$${q.next_earnings.eps_estimate.toFixed(2)}` : 'Pending';
         document.getElementById("nextEarningsSub").innerHTML = `
-          <div>• Consensus EPS Estimate: <b>$${q.next_earnings.eps_estimate ? q.next_earnings.eps_estimate.toFixed(2) : 'Pending'}</b></div>
+          <div>• Consensus EPS Estimate: <b>${epsEst}</b></div>
           <div>• Status: <b class="text-blue-600">${q.next_earnings.timing_status || 'Scheduled by IR'}</b></div>
           <div>• Source: ${q.next_earnings.primary_source || 'Yahoo Finance'}</div>
         `;
       }
       if (q.last_earnings) {
         const le = q.last_earnings;
-        document.getElementById("lastEarningsDate").innerText = le.date;
-        document.getElementById("lastEarningsBeat").innerText = `${le.beat_status} (${le.surprise_pct ? le.surprise_pct.toFixed(1) + '%' : ''})`;
-        document.getElementById("lastEarnings1D").innerText = `${le.perf_1d_pct >= 0 ? '+' : ''}${le.perf_1d_pct ? le.perf_1d_pct.toFixed(2) : 0}%`;
-        document.getElementById("lastEarnings1W").innerText = `${le.perf_1w_pct >= 0 ? '+' : ''}${le.perf_1w_pct ? le.perf_1w_pct.toFixed(2) : 0}%`;
+        document.getElementById("lastEarningsDate").innerText = le.date || "Past";
+        const surp = safeNum(le.surprise_pct) ? ` (${le.surprise_pct.toFixed(1)}%)` : "";
+        document.getElementById("lastEarningsBeat").innerText = `${le.beat_status || ''}${surp}`;
+        document.getElementById("lastEarnings1D").innerText = safeNum(le.perf_1d_pct) ? `${le.perf_1d_pct >= 0 ? '+' : ''}${le.perf_1d_pct.toFixed(2)}%` : "N/A";
+        document.getElementById("lastEarnings1W").innerText = safeNum(le.perf_1w_pct) ? `${le.perf_1w_pct >= 0 ? '+' : ''}${le.perf_1w_pct.toFixed(2)}%` : "N/A";
       }
 
       // Table
@@ -668,13 +706,13 @@
         tb.innerHTML = q.historical_earnings.map(r => `
           <tr class="hover:bg-slate-50">
             <td class="p-2.5 font-bold">${r.date}</td>
-            <td class="p-2.5 text-slate-500">${r.timing}</td>
-            <td class="p-2.5">${r.eps_estimate ? '$' + r.eps_estimate.toFixed(2) : 'N/A'}</td>
-            <td class="p-2.5 font-semibold">${r.eps_reported ? '$' + r.eps_reported.toFixed(2) : 'N/A'}</td>
-            <td class="p-2.5">${r.surprise_pct ? (r.surprise_pct >= 0 ? '+' : '') + r.surprise_pct.toFixed(1) + '%' : 'N/A'}</td>
-            <td class="p-2.5 font-bold ${r.beat_status === 'Beat' ? 'text-emerald-600' : 'text-rose-600'}">${r.beat_status}</td>
-            <td class="p-2.5 font-bold ${r.perf_1d_pct >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${r.perf_1d_pct ? (r.perf_1d_pct >= 0 ? '+' : '') + r.perf_1d_pct.toFixed(2) + '%' : 'N/A'}</td>
-            <td class="p-2.5 font-bold ${r.perf_1w_pct >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${r.perf_1w_pct ? (r.perf_1w_pct >= 0 ? '+' : '') + r.perf_1w_pct.toFixed(2) + '%' : 'N/A'}</td>
+            <td class="p-2.5 text-slate-500">${r.timing || ''}</td>
+            <td class="p-2.5">${safeNum(r.eps_estimate) ? '$' + r.eps_estimate.toFixed(2) : 'N/A'}</td>
+            <td class="p-2.5 font-semibold">${safeNum(r.eps_reported) ? '$' + r.eps_reported.toFixed(2) : 'N/A'}</td>
+            <td class="p-2.5">${safeNum(r.surprise_pct) ? (r.surprise_pct >= 0 ? '+' : '') + r.surprise_pct.toFixed(1) + '%' : 'N/A'}</td>
+            <td class="p-2.5 font-bold ${r.beat_status === 'Beat' ? 'text-emerald-600' : 'text-rose-600'}">${r.beat_status || ''}</td>
+            <td class="p-2.5 font-bold ${r.perf_1d_pct >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${safeNum(r.perf_1d_pct) ? (r.perf_1d_pct >= 0 ? '+' : '') + r.perf_1d_pct.toFixed(2) + '%' : 'N/A'}</td>
+            <td class="p-2.5 font-bold ${r.perf_1w_pct >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${safeNum(r.perf_1w_pct) ? (r.perf_1w_pct >= 0 ? '+' : '') + r.perf_1w_pct.toFixed(2) + '%' : 'N/A'}</td>
           </tr>
         `).join("");
       }
@@ -683,11 +721,12 @@
     function renderGrowthCard(valId, subId, item) {
       const valEl = document.getElementById(valId);
       const subEl = document.getElementById(subId);
-      if (item && item.available) {
+      if (item && item.available && safeNum(item.growth_pct)) {
         const sign = item.growth_pct >= 0 ? "+" : "";
         valEl.innerText = `${sign}${item.growth_pct.toFixed(2)}%`;
         valEl.className = `text-xl sm:text-2xl font-extrabold mt-1 ${item.growth_pct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`;
-        subEl.innerText = `Start: $${item.start_price.toFixed(2)} (${item.start_date})`;
+        const startP = safeNum(item.start_price) ? `$${item.start_price.toFixed(2)}` : "N/A";
+        subEl.innerText = `Start: ${startP} (${item.start_date || ''})`;
       } else {
         valEl.innerText = "N/A";
         subEl.innerText = "Not enough history";
@@ -816,12 +855,14 @@
         ? trade.warnings.map(w => `<li>${w}</li>`).join("")
         : `<li>✅ No severe friction points detected.</li>`;
 
-      document.getElementById("optTotalCost").innerText = `$${trade.total_investment.toFixed(2)}`;
-      document.getElementById("optBreakeven").innerText = `$${trade.breakeven_price.toFixed(2)}`;
-      document.getElementById("optReqMove").innerText = `Required Move: ${trade.move_to_breakeven_pct >= 0 ? '+' : ''}${trade.move_to_breakeven_pct.toFixed(1)}%`;
-      document.getElementById("optMaxProfit").innerText = trade.max_profit_str;
-      document.getElementById("optPoP").innerText = `${trade.pop.toFixed(1)}%`;
-      document.getElementById("optTheta").innerText = `-$${Math.abs(trade.greeks.theta_daily_total).toFixed(2)} / day`;
+      document.getElementById("optTotalCost").innerText = safeNum(trade.total_investment) ? `$${trade.total_investment.toFixed(2)}` : "N/A";
+      document.getElementById("optBreakeven").innerText = safeNum(trade.breakeven_price) ? `$${trade.breakeven_price.toFixed(2)}` : "N/A";
+      const reqM = safeNum(trade.move_to_breakeven_pct) ? `${trade.move_to_breakeven_pct >= 0 ? '+' : ''}${trade.move_to_breakeven_pct.toFixed(1)}%` : "N/A";
+      document.getElementById("optReqMove").innerText = `Required Move: ${reqM}`;
+      document.getElementById("optMaxProfit").innerText = trade.max_profit_str || "N/A";
+      document.getElementById("optPoP").innerText = safeNum(trade.pop) ? `${trade.pop.toFixed(1)}%` : "N/A";
+      const th = (trade.greeks && safeNum(trade.greeks.theta_daily_total)) ? `-$${Math.abs(trade.greeks.theta_daily_total).toFixed(2)} / day` : "N/A";
+      document.getElementById("optTheta").innerText = th;
 
       // Render Options P&L Chart
       renderOptionsPnlChart(trade);
