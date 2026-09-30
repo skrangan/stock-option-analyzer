@@ -8,18 +8,58 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from scipy.stats import norm
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
+
+def generate_standard_expirations() -> list:
+    """
+    Generate realistic CBOE standard equity options expiration Fridays:
+    - Weekly Fridays for the next 6 weeks
+    - Monthly 3rd Fridays for the next 12 months
+    """
+    today = date.today()
+    expirations = []
+    
+    # 1. Weekly Fridays for next 6 weeks
+    days_to_friday = (4 - today.weekday()) % 7
+    if days_to_friday == 0:  # If today is Friday, start next Friday
+        days_to_friday = 7
+    next_friday = today + timedelta(days=days_to_friday)
+    
+    for i in range(6):
+        f = next_friday + timedelta(weeks=i)
+        expirations.append(f.strftime('%Y-%m-%d'))
+        
+    # 2. Monthly third Fridays for next 12 months
+    for m_offset in range(1, 13):
+        year = today.year + (today.month + m_offset - 1) // 12
+        month = (today.month + m_offset - 1) % 12 + 1
+        first_day = date(year, month, 1)
+        d_to_fri = (4 - first_day.weekday()) % 7
+        first_fri = first_day + timedelta(days=d_to_fri)
+        third_fri = first_fri + timedelta(weeks=2)
+        s = third_fri.strftime('%Y-%m-%d')
+        if s not in expirations:
+            expirations.append(s)
+            
+    expirations.sort()
+    return expirations
 
 def get_available_expirations(symbol: str) -> list:
     """
     Fetch list of available option expiration date strings (YYYY-MM-DD) for a ticker.
+    Gracefully falls back to the standard CBOE market expiration schedule if market API is throttled.
     """
     try:
         ticker = yf.Ticker(symbol.strip().upper())
         opts = ticker.options
-        return list(opts) if opts else []
+        if opts and len(opts) > 0:
+            today_str = date.today().strftime('%Y-%m-%d')
+            future_opts = [e for e in opts if e >= today_str]
+            if len(future_opts) > 0:
+                return list(future_opts)
     except Exception:
-        return []
+        pass
+    return generate_standard_expirations()
 
 def get_option_chain_data(symbol: str, expiration_date: str) -> dict:
     """
@@ -208,6 +248,76 @@ def analyze_option_trade(
     # Expected Move over DTE: sigma * sqrt(T)
     expected_move_pct = sigma * np.sqrt(T) * 100.0
     expected_move_dollar = current_price * (expected_move_pct / 100.0)
+
+    # ------------------ DELTA TROUNCES THETA ENGINE ------------------
+    abs_delta = abs(bs_now["delta"])
+    abs_theta_daily = abs(daily_theta_per_share)
+    daily_hurdle_dollar = (abs_theta_daily / abs_delta) if abs_delta > 1e-4 else 0.0
+    daily_hurdle_pct = (daily_hurdle_dollar / current_price) * 100.0 if current_price > 0 else 0.0
+    
+    delta_gain_per_point = abs_delta * shares_controlled
+    daily_theta_cost = abs(daily_theta_total)
+    trounce_ratio = (delta_gain_per_point / daily_theta_cost) if daily_theta_cost > 1e-4 else 1.0
+    
+    # Day-by-Day Progression Simulation (from Day 0 to Expiration)
+    sim_days_count = max(1, min(dte, 45))
+    sim_days = list(range(0, sim_days_count + 1))
+    
+    sim_theta_only = []    # Stock flat (pure Theta decay)
+    sim_move_05pct = []    # Stock moves +0.5%/day in favorable direction
+    sim_move_1pct = []     # Stock moves +1.0%/day in favorable direction
+    sim_move_2pct = []     # Stock moves +2.0%/day in favorable direction
+    
+    direction_sign = 1.0 if option_type == 'call' else -1.0
+    crossover_day = None
+    
+    for t in sim_days:
+        rem_dte = max(0.001, dte - t)
+        rem_T = rem_dte / 365.0
+        
+        # Path 0: Flat stock (pure Theta decay)
+        bs_flat = black_scholes_pricing(current_price, strike, rem_T, r, sigma, option_type)
+        pnl_flat = (bs_flat["price"] - cost_per_share) * shares_controlled
+        sim_theta_only.append(round(pnl_flat, 2))
+        
+        # Path 1: Moderate move (+0.5%/day)
+        p_05 = current_price * (1.0 + direction_sign * 0.005 * t)
+        bs_05 = black_scholes_pricing(p_05, strike, rem_T, r, sigma, option_type)
+        pnl_05 = (bs_05["price"] - cost_per_share) * shares_controlled
+        sim_move_05pct.append(round(pnl_05, 2))
+        
+        # Path 2: Strong move (+1.0%/day)
+        p_1 = current_price * (1.0 + direction_sign * 0.01 * t)
+        bs_1 = black_scholes_pricing(p_1, strike, rem_T, r, sigma, option_type)
+        pnl_1 = (bs_1["price"] - cost_per_share) * shares_controlled
+        sim_move_1pct.append(round(pnl_1, 2))
+        if crossover_day is None and pnl_1 > 0 and t > 0:
+            crossover_day = t
+            
+        # Path 3: Aggressive move (+2.0%/day)
+        p_2 = current_price * (1.0 + direction_sign * 0.02 * t)
+        bs_2 = black_scholes_pricing(p_2, strike, rem_T, r, sigma, option_type)
+        pnl_2 = (bs_2["price"] - cost_per_share) * shares_controlled
+        sim_move_2pct.append(round(pnl_2, 2))
+
+    delta_vs_theta = {
+        "daily_hurdle_dollar": round(daily_hurdle_dollar, 2),
+        "daily_hurdle_pct": round(daily_hurdle_pct, 2),
+        "delta_gain_per_point": round(delta_gain_per_point, 2),
+        "daily_theta_burn": round(daily_theta_cost, 2),
+        "trounce_ratio": round(trounce_ratio, 1),
+        "crossover_day_at_1pct": crossover_day if crossover_day is not None else "N/A",
+        "sim_days": [f"Day {d}" for d in sim_days],
+        "sim_theta_only": sim_theta_only,
+        "sim_move_05pct": sim_move_05pct,
+        "sim_move_1pct": sim_move_1pct,
+        "sim_move_2pct": sim_move_2pct,
+        "takeaway": (
+            f"Stock must move at least {'+' if option_type == 'call' else '-'}${daily_hurdle_dollar:.2f}/day "
+            f"({daily_hurdle_pct:.2f}%/day) for Delta gains to trounce daily Theta erosion. "
+            f"Every $1.00 move yields ${delta_gain_per_point:.2f} in Delta profit, neutralizing {trounce_ratio:.1f} days of Theta decay."
+        )
+    }
 
     # ------------------ "SHOULD I BUY THIS OPTION?" DECISION ENGINE ------------------
     score = 0
@@ -408,5 +518,6 @@ def analyze_option_trade(
             "pnl_exp": [round(val, 2) for val in curve_pnl_exp],
             "pnl_halfway": [round(val, 2) for val in curve_pnl_halfway],
             "pnl_today": [round(val, 2) for val in curve_pnl_today]
-        }
+        },
+        "delta_vs_theta": delta_vs_theta
     }

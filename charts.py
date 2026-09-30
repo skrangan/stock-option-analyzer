@@ -575,3 +575,120 @@ def create_options_pnl_chart(trade_data: dict) -> go.Figure:
 
     return fig
 
+def create_trounce_chart(trade_data: dict) -> go.Figure:
+    """
+    Create the 'How Delta Trounces Theta' Day-by-Day Progression Plotly chart in Light Mode.
+    Compares cumulative Theta decay vs Delta profit across daily stock move paths (+0.5%, +1.0%, +2.0%/day).
+    """
+    dvt = trade_data.get("delta_vs_theta", {})
+    if not dvt:
+        fig = go.Figure()
+        fig.add_annotation(text="Delta vs Theta data unavailable", showarrow=False)
+        return fig
+
+    sim_days = dvt.get("sim_days", [])
+    theta_only = dvt.get("sim_theta_only", [])
+    move_05 = dvt.get("sim_move_05pct", [])
+    move_1 = dvt.get("sim_move_1pct", [])
+    move_2 = dvt.get("sim_move_2pct", [])
+
+    fig = go.Figure()
+
+    # 1. Pure Theta Burn (Stock Flat)
+    fig.add_trace(go.Scatter(
+        x=sim_days,
+        y=theta_only,
+        mode="lines+markers",
+        name="Stock Flat (Pure Theta Burn)",
+        line=dict(color="#DC2626", width=2.5, dash="dash"),
+        marker=dict(size=4, color="#DC2626"),
+        hovertemplate="Theta Loss: $%{y:,.2f}<extra></extra>"
+    ))
+
+    # 2. +0.5%/day Move
+    fig.add_trace(go.Scatter(
+        x=sim_days,
+        y=move_05,
+        mode="lines+markers",
+        name="+0.5%/day Move (Slow Drift)",
+        line=dict(color="#D97706", width=2),
+        marker=dict(size=4, color="#D97706"),
+        hovertemplate="+0.5%/day P&L: $%{y:,.2f}<extra></extra>"
+    ))
+
+    # 3. +1.0%/day Move (Delta Trounce)
+    fig.add_trace(go.Scatter(
+        x=sim_days,
+        y=move_1,
+        mode="lines+markers",
+        name="+1.0%/day Move (Delta Trouncing Theta)",
+        line=dict(color="#059669", width=3.5),
+        marker=dict(size=6, color="#059669"),
+        fill="tozeroy",
+        fillcolor="rgba(5, 150, 105, 0.08)",
+        hovertemplate="+1.0%/day P&L: $%{y:,.2f}<extra></extra>"
+    ))
+
+    # 4. +2.0%/day Move (Momentum Breakout)
+    fig.add_trace(go.Scatter(
+        x=sim_days,
+        y=move_2,
+        mode="lines+markers",
+        name="+2.0%/day Move (Strong Momentum)",
+        line=dict(color="#2563EB", width=2),
+        marker=dict(size=4, color="#2563EB"),
+        hovertemplate="+2.0%/day P&L: $%{y:,.2f}<extra></extra>"
+    ))
+
+    # Breakeven zero line
+    fig.add_hline(
+        y=0,
+        line_width=1.5,
+        line_color="#475569",
+        line_dash="dot",
+        annotation_text="Breakeven ($0 P&L)",
+        annotation_position="bottom right",
+        annotation_font=dict(color="#475569", size=11)
+    )
+
+    fig.update_layout(
+        template="plotly_white",
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="#F8FAFC",
+        margin=dict(l=55, r=20, t=55, b=35),
+        height=450,
+        title=dict(
+            text=f"<b>⚔️ How Delta Trounces Theta by Each Day</b> &nbsp;&nbsp; "
+                 f"<span style='font-size:13px; color:#475569;'>Hurdle to beat Theta: +${dvt.get('daily_hurdle_dollar', 0):.2f}/day ({dvt.get('daily_hurdle_pct', 0):.2f}%/day)</span>",
+            font=dict(size=16, color="#0F172A")
+        ),
+        xaxis=dict(
+            title="Holding Period (Days from Today to Expiration)",
+            showgrid=True,
+            gridcolor="#E2E8F0",
+            titlefont=dict(color="#334155"),
+            tickfont=dict(color="#475569")
+        ),
+        yaxis=dict(
+            title="Net Position P&L ($)",
+            showgrid=True,
+            gridcolor="#E2E8F0",
+            titlefont=dict(color="#334155"),
+            tickfont=dict(color="#475569"),
+            zeroline=True,
+            zerolinecolor="#475569",
+            zerolinewidth=1.5
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            font=dict(color="#334155")
+        ),
+        hovermode="x unified"
+    )
+
+    return fig
+

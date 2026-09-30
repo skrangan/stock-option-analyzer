@@ -457,6 +457,58 @@
           </div>
         </div>
 
+        <!-- How Delta Trounces Theta (Day-by-Day Progression) -->
+        <div class="card p-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 pb-3 border-b border-slate-100 gap-2">
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="text-xl">⚔️</span>
+                <h3 class="text-base sm:text-lg font-black text-slate-900 tracking-tight">How Delta Trounces Theta (Day-by-Day Progression)</h3>
+                <span class="bg-indigo-100 text-indigo-700 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full">Direction vs Time Decay</span>
+              </div>
+              <div class="text-xs text-slate-500 mt-1">Tracks whether directional stock movement (Delta gain) outpaces the guaranteed time decay (Theta burn) over each holding day.</div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <span class="inline-flex items-center bg-rose-50 text-rose-700 px-2 py-1 rounded border border-rose-200"><span class="w-2.5 h-2.5 bg-rose-500 rounded-full mr-1.5"></span> Pure Theta Burn (Stock Flat)</span>
+              <span class="inline-flex items-center bg-amber-50 text-amber-700 px-2 py-1 rounded border border-amber-200"><span class="w-2.5 h-2.5 bg-amber-500 rounded-full mr-1.5"></span> +0.5%/day Move</span>
+              <span class="inline-flex items-center bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-200 font-bold"><span class="w-2.5 h-2.5 bg-emerald-500 rounded-full mr-1.5"></span> +1.0%/day Move (Delta Trounce)</span>
+              <span class="inline-flex items-center bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200"><span class="w-2.5 h-2.5 bg-blue-500 rounded-full mr-1.5"></span> +2.0%/day Move</span>
+            </div>
+          </div>
+
+          <!-- Scorecards -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <div class="bg-indigo-50/60 rounded-xl p-3 border border-indigo-100">
+              <div class="text-[11px] font-bold uppercase text-indigo-500">Daily Hurdle to Beat Theta</div>
+              <div id="dvtHurdle" class="text-lg sm:text-xl font-extrabold text-indigo-900 mt-0.5">+$0.37 / day</div>
+              <div id="dvtHurdlePct" class="text-[11px] font-semibold text-indigo-600 mt-0.5">+0.11%/day needed</div>
+            </div>
+            <div class="bg-emerald-50/60 rounded-xl p-3 border border-emerald-100">
+              <div class="text-[11px] font-bold uppercase text-emerald-600">Delta Power per $1 Move</div>
+              <div id="dvtDeltaPower" class="text-lg sm:text-xl font-extrabold text-emerald-800 mt-0.5">+$52.50</div>
+              <div class="text-[11px] text-emerald-600 mt-0.5">Added per $1.00 stock gain</div>
+            </div>
+            <div class="bg-rose-50/60 rounded-xl p-3 border border-rose-100">
+              <div class="text-[11px] font-bold uppercase text-rose-500">Daily Theta Drag</div>
+              <div id="dvtThetaDrag" class="text-lg sm:text-xl font-extrabold text-rose-700 mt-0.5">-$19.55 / day</div>
+              <div class="text-[11px] text-rose-500 mt-0.5">Time decay if stock flat</div>
+            </div>
+            <div class="bg-amber-50/60 rounded-xl p-3 border border-amber-100">
+              <div class="text-[11px] font-bold uppercase text-amber-600">Trounce Crossover Day</div>
+              <div id="dvtCrossover" class="text-lg sm:text-xl font-extrabold text-amber-900 mt-0.5">Day 2</div>
+              <div id="dvtRatio" class="text-[11px] text-amber-700 mt-0.5">1 pt move beats 2.7d Theta</div>
+            </div>
+          </div>
+
+          <!-- Trounce Chart Canvas -->
+          <div class="h-64 sm:h-80 w-full mb-3">
+            <canvas id="trounceChart"></canvas>
+          </div>
+
+          <!-- Dynamic Takeaway Explanation -->
+          <div id="trounceTakeaway" class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-700 leading-relaxed font-medium"></div>
+        </div>
+
         <!-- Scenario Matrix Table -->
         <div class="card p-5">
           <h3 class="text-base font-extrabold text-slate-900 mb-3">Expiration P&L Scenario Matrix</h3>
@@ -492,6 +544,7 @@
     let currentStockData = null;
     let stockChartInstance = null;
     let optionsPnlChartInstance = null;
+    let trounceChartInstance = null;
     let currentPeriod = "6M";
     let activeMainTab = "stock";
     let currentTicker = "AAPL";
@@ -556,15 +609,8 @@
         const expsData = await expsRes.json();
 
         renderStockView(currentStockData);
-        populateExpirationsDropdown(expsData.expirations);
+        populateExpirationsDropdown(expsData ? expsData.expirations : null);
         await fetchChart(currentTicker, currentPeriod);
-
-    function safeNum(v) {
-      return (v !== null && v !== undefined && !isNaN(v) && typeof v === 'number');
-    }
-    function fmtPrice(v, dec = 2) {
-      return safeNum(v) ? `$${v.toFixed(dec)}` : "N/A";
-    }
 
         // Pre-fill default strike & bid
         const p = currentStockData.current_price;
@@ -574,9 +620,8 @@
           document.getElementById("optBidInput").value = Math.max(1, (p * 0.02).toFixed(2));
         }
 
-        if (activeMainTab === "options") {
-          triggerOptionAnalysis();
-        }
+        // Always trigger option analysis so options tab is pre-calculated
+        triggerOptionAnalysis();
       } catch (err) {
         alert(`Error loading ticker ${currentTicker}: ${err.message}`);
       } finally {
@@ -795,16 +840,57 @@
       });
     }
 
-    // Populate Expirations Dropdown
+    // Generate standard real-world CBOE Friday expirations if market API is throttled
+    function generateFallbackExpirations() {
+      const today = new Date();
+      const list = [];
+      let d = new Date(today);
+      let dayOfWeek = d.getDay();
+      let daysToFri = (5 - dayOfWeek + 7) % 7;
+      if (daysToFri === 0) daysToFri = 7;
+      d.setDate(d.getDate() + daysToFri);
+
+      // Next 6 weekly Fridays
+      for (let i = 0; i < 6; i++) {
+        const cur = new Date(d);
+        cur.setDate(d.getDate() + i * 7);
+        const ymd = cur.toISOString().split("T")[0];
+        const diffDays = Math.max(1, Math.round((cur - today) / (1000 * 60 * 60 * 24)));
+        list.push({ date: ymd, dte: diffDays, label: `${ymd} (${diffDays}d)` });
+      }
+
+      // Next 8 monthly third Fridays
+      for (let m = 1; m <= 8; m++) {
+        const target = new Date(today.getFullYear(), today.getMonth() + m, 1);
+        const firstDay = target.getDay();
+        const dToFri = (5 - firstDay + 7) % 7;
+        const firstFri = 1 + dToFri;
+        const thirdFri = firstFri + 14;
+        const cur = new Date(target.getFullYear(), target.getMonth(), thirdFri);
+        const ymd = cur.toISOString().split("T")[0];
+        const diffDays = Math.max(1, Math.round((cur - today) / (1000 * 60 * 60 * 24)));
+        if (!list.some(x => x.date === ymd)) {
+          list.push({ date: ymd, dte: diffDays, label: `${ymd} (${diffDays}d)` });
+        }
+      }
+      list.sort((a, b) => a.date.localeCompare(b.date));
+      return list;
+    }
+
+    // Populate Expirations Dropdown dynamically
     function populateExpirationsDropdown(expirations) {
       const sel = document.getElementById("optExpInput");
-      if (!expirations || !expirations.length) {
-        sel.innerHTML = `<option value="${new Date().toISOString().split('T')[0]}">No Options Available</option>`;
-        return;
-      }
-      sel.innerHTML = expirations.map((e, idx) => `
-        <option value="${e.date}" ${idx === 2 ? 'selected' : ''}>${e.label}</option>
+      const exps = (expirations && expirations.length) ? expirations : generateFallbackExpirations();
+      
+      const prevVal = sel.value;
+      const defaultIdx = Math.min(2, exps.length - 1);
+      sel.innerHTML = exps.map((e, idx) => `
+        <option value="${e.date}" ${(prevVal === e.date || (!prevVal && idx === defaultIdx)) ? 'selected' : ''}>${e.label}</option>
       `).join("");
+      
+      if (!sel.value && exps.length > 0) {
+        sel.value = exps[defaultIdx].date;
+      }
     }
 
     // Option Params Changed (Debounced for instant reactivity without page jumps)
@@ -812,7 +898,7 @@
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         triggerOptionAnalysis();
-      }, 250);
+      }, 200);
     }
 
     // Analyze Option via API
@@ -835,7 +921,7 @@
       }
     }
 
-    // Render Option Results & Interactive Chart
+    // Render Option Results & Interactive Charts
     function renderOptionResults(trade) {
       const card = document.getElementById("optionVerdictCard");
       card.style.borderLeftColor = trade.verdict_color;
@@ -866,6 +952,11 @@
 
       // Render Options P&L Chart
       renderOptionsPnlChart(trade);
+
+      // Render How Delta Trounces Theta Chart
+      if (trade.delta_vs_theta) {
+        renderTrounceChart(trade.delta_vs_theta);
+      }
 
       // Render Scenario Matrix Table
       renderScenarioTable(trade.scenarios);
@@ -926,6 +1017,106 @@
             y: {
               grid: { color: '#F1F5F9' },
               ticks: { color: '#64748B', callback: (val) => `$${val}` }
+            }
+          }
+        }
+      });
+    }
+
+    function renderTrounceChart(dvt) {
+      if (!dvt) return;
+      
+      // Update Scorecards
+      const hurdleEl = document.getElementById("dvtHurdle");
+      if (hurdleEl) hurdleEl.innerText = safeNum(dvt.daily_hurdle_dollar) ? `+$${dvt.daily_hurdle_dollar.toFixed(2)} / day` : "N/A";
+      const hurdlePctEl = document.getElementById("dvtHurdlePct");
+      if (hurdlePctEl) hurdlePctEl.innerText = safeNum(dvt.daily_hurdle_pct) ? `+${dvt.daily_hurdle_pct.toFixed(2)}%/day needed` : "";
+      const deltaPowerEl = document.getElementById("dvtDeltaPower");
+      if (deltaPowerEl) deltaPowerEl.innerText = safeNum(dvt.delta_gain_per_point) ? `+$${dvt.delta_gain_per_point.toFixed(2)}` : "N/A";
+      const thetaDragEl = document.getElementById("dvtThetaDrag");
+      if (thetaDragEl) thetaDragEl.innerText = safeNum(dvt.daily_theta_burn) ? `-$${dvt.daily_theta_burn.toFixed(2)} / day` : "N/A";
+      const crossoverEl = document.getElementById("dvtCrossover");
+      if (crossoverEl) crossoverEl.innerText = (dvt.crossover_day_at_1pct && dvt.crossover_day_at_1pct !== "N/A") ? `Day ${dvt.crossover_day_at_1pct}` : "Needs >1%/day";
+      const ratioEl = document.getElementById("dvtRatio");
+      if (ratioEl) ratioEl.innerText = safeNum(dvt.trounce_ratio) ? `1 pt move beats ${dvt.trounce_ratio}d Theta` : "";
+      const takeawayEl = document.getElementById("trounceTakeaway");
+      if (takeawayEl) takeawayEl.innerHTML = `<b>💡 Trounce Rationale:</b> ${dvt.takeaway}`;
+
+      const canvas = document.getElementById("trounceChart");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (trounceChartInstance) trounceChartInstance.destroy();
+
+      trounceChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dvt.sim_days,
+          datasets: [
+            {
+              label: 'Stock Flat (Pure Theta Decay Loss)',
+              data: dvt.sim_theta_only,
+              borderColor: '#EF4444',
+              backgroundColor: 'rgba(239, 68, 68, 0.05)',
+              borderWidth: 2,
+              borderDash: [4, 4],
+              pointRadius: 2,
+              pointHoverRadius: 5,
+              tension: 0.2
+            },
+            {
+              label: '+0.5%/day Move (Slow Drift)',
+              data: dvt.sim_move_05pct,
+              borderColor: '#F59E0B',
+              borderWidth: 2,
+              pointRadius: 2,
+              tension: 0.2
+            },
+            {
+              label: '+1.0%/day Move (Delta Trouncing Theta)',
+              data: dvt.sim_move_1pct,
+              borderColor: '#10B981',
+              backgroundColor: 'rgba(16, 185, 129, 0.08)',
+              fill: true,
+              borderWidth: 3,
+              pointRadius: 3,
+              tension: 0.2
+            },
+            {
+              label: '+2.0%/day Move (Strong Momentum)',
+              data: dvt.sim_move_2pct,
+              borderColor: '#3B82F6',
+              borderWidth: 2,
+              pointRadius: 2,
+              tension: 0.2
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y >= 0 ? '+$' : '-$'}${Math.abs(ctx.parsed.y).toFixed(2)}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: '#F1F5F9' },
+              ticks: { color: '#64748B', font: { size: 11 } }
+            },
+            y: {
+              grid: {
+                color: (ctx) => ctx.tick.value === 0 ? '#94A3B8' : '#F1F5F9',
+                lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1
+              },
+              ticks: {
+                color: '#64748B',
+                callback: (val) => `${val >= 0 ? '+$' : '-$'}${Math.abs(val)}`
+              }
             }
           }
         }

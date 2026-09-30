@@ -935,7 +935,53 @@ else:
 
     st.markdown("---")
 
-    # 4. SCENARIO MATRIX TABLE
+    # 4. HOW DELTA TROUNCES THETA (DAY-BY-DAY PROGRESSION)
+    st.subheader("⚔️ How Delta Trounces Theta by Each Day")
+    st.caption("Visualizes whether directional stock movement (Delta gain) outpaces the guaranteed time decay (Theta burn) across each holding day.")
+
+    dvt_info = trade_eval.get("delta_vs_theta", {})
+    if dvt_info:
+        dvt_c1, dvt_c2, dvt_c3, dvt_c4 = st.columns(4)
+        with dvt_c1:
+            st.metric(
+                "Daily Hurdle to Beat Theta",
+                f"+${dvt_info.get('daily_hurdle_dollar', 0):.2f}/day",
+                f"{dvt_info.get('daily_hurdle_pct', 0):.2f}%/day needed",
+                help="The stock must move by at least this amount each day for Delta to outpace Theta decay."
+            )
+        with dvt_c2:
+            st.metric(
+                "Delta Power per $1 Move",
+                f"+${dvt_info.get('delta_gain_per_point', 0):.2f}",
+                f"{trade_eval['shares_controlled']} shares controlled",
+                help="Total dollar profit added to your position for each $1.00 move in the stock."
+            )
+        with dvt_c3:
+            st.metric(
+                "Daily Theta Drag",
+                f"-${dvt_info.get('daily_theta_burn', 0):.2f}/day",
+                f"{trade_eval['dte']} DTE remaining",
+                delta_color="inverse",
+                help="The guaranteed daily decay lost if the stock price remains unchanged."
+            )
+        with dvt_c4:
+            cross_day = dvt_info.get('crossover_day_at_1pct')
+            cross_str = f"Day {cross_day}" if cross_day != "N/A" else "Needs >1%/day"
+            st.metric(
+                "Trounce Crossover (at +1%/d)",
+                cross_str,
+                f"1 pt move beats {dvt_info.get('trounce_ratio', 0):.1f}d Theta",
+                help="The day when a steady +1.0%/day stock move completely overcomes cumulative Theta decay."
+            )
+
+        fig_trounce = charts.create_trounce_chart(trade_eval)
+        st.plotly_chart(fig_trounce, use_container_width=True)
+
+        st.info(f"💡 **Trounce Rationale:** {dvt_info.get('takeaway', '')}")
+
+    st.markdown("---")
+
+    # 5. SCENARIO MATRIX TABLE
     st.subheader("📑 Expiration P&L Scenario Matrix")
     st.caption("How your investment performs across various stock prices on the expiration date:")
 
