@@ -9,10 +9,31 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 import os
+import math
+import numpy as np
 import stock_core as sc
 import options_core as oc
 import pandas as pd
 from datetime import datetime, date
+
+def sanitize_for_json(obj):
+    if isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple, set)):
+        return [sanitize_for_json(x) for x in obj]
+    elif isinstance(obj, (float, np.floating)):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return float(obj)
+    elif isinstance(obj, (int, np.integer)):
+        return int(obj)
+    elif isinstance(obj, (np.bool_, bool)):
+        return bool(obj)
+    elif isinstance(obj, (pd.Timestamp, datetime, date)):
+        return obj.isoformat()
+    elif pd.isna(obj):
+        return None
+    return obj
 
 app = FastAPI(
     title="Stock & Option Analysis API",
@@ -58,7 +79,7 @@ def get_stock(symbol: str, refresh: bool = Query(False)):
         raw = analysis["raw"]
         
         # Serialize history-free summary with live timestamp
-        return {
+        res = {
             "symbol": raw["symbol"],
             "short_name": raw["short_name"],
             "currency": raw["currency"],
@@ -85,6 +106,7 @@ def get_stock(symbol: str, refresh: bool = Query(False)):
             "outlook": analysis["outlook"],
             "quarterly": analysis["quarterly"]
         }
+        return JSONResponse(content=sanitize_for_json(res))
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Could not fetch stock data for '{symbol}': {str(e)}")
 
@@ -112,12 +134,13 @@ def get_chart_data(symbol: str, period: str = Query("6M", pattern="^(1W|1M|3M|6M
                 "sma_50": round(float(row["SMA_50"]), 2) if pd.notna(row.get("SMA_50")) else None,
             })
             
-        return {
+        res = {
             "symbol": symbol.upper(),
             "period": period,
             "count": len(records),
             "data": records
         }
+        return JSONResponse(content=sanitize_for_json(res))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -136,7 +159,7 @@ def get_expirations(symbol: str):
                 items.append({"date": e, "dte": dte, "label": f"{e} ({dte}d)"})
             except Exception:
                 items.append({"date": e, "dte": 0, "label": e})
-        return {"symbol": symbol.upper(), "expirations": items}
+        return JSONResponse(content=sanitize_for_json({"symbol": symbol.upper(), "expirations": items}))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -147,7 +170,7 @@ def get_chain(symbol: str, expiration: str):
     """
     try:
         chain = oc.get_option_chain_data(symbol, expiration)
-        return chain
+        return JSONResponse(content=sanitize_for_json(chain))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -178,7 +201,7 @@ def analyze_option(
             num_contracts=contracts,
             outlook=outlook
         )
-        return result
+        return JSONResponse(content=sanitize_for_json(result))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -186,7 +209,7 @@ def analyze_option(
 os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-@app.get("/", response_class=HTMLResponse)
+@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 def serve_index():
     index_file = os.path.join("static", "index.html")
     if os.path.exists(index_file):
