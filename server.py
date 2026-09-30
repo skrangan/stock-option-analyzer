@@ -177,7 +177,7 @@ def get_chain(symbol: str, expiration: str):
 @app.get("/api/options/analyze")
 def analyze_option(
     symbol: str,
-    option_type: str = Query("call", pattern="^(call|put)$"),
+    option_type: str = Query("call", pattern="^(?i)(call|put)$"),
     strike: float = Query(...),
     bid: float = Query(...),
     expiration: str = Query(...),
@@ -187,6 +187,7 @@ def analyze_option(
     Evaluate an option purchase: Breakeven, Greeks, PoP, P&L curve, and Buy/Avoid recommendation.
     """
     try:
+        option_type = option_type.lower()
         analysis, _ = get_cached_analysis(symbol)
         curr_price = analysis["raw"]["current_price"]
         outlook = analysis["outlook"]
