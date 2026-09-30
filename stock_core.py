@@ -28,11 +28,30 @@ def get_stock_data(symbol: str) -> dict:
             raise ValueError(f"No trading data found for ticker '{symbol}'. Please check the symbol or exchange.")
         hist = hist_check
         
+    # Drop rows where Close is NaN (e.g. today's unclosed trading row or holidays)
+    hist = hist[pd.notna(hist["Close"]) & pd.notna(hist["Open"])]
+    if hist.empty:
+        raise ValueError(f"No valid historical price bars found for ticker '{symbol}'.")
+        
     info = {}
     try:
         info = ticker.info or {}
     except Exception:
         info = {}
+        
+    # Safely query fast_info (resilient to cloud IP rate limiting)
+    fast_info = {}
+    try:
+        fi = ticker.fast_info
+        for k in ("lastPrice", "previousClose", "marketCap", "yearHigh", "yearLow", "currency", "exchange"):
+            try:
+                val = fi[k]
+                if val is not None and not pd.isna(val):
+                    fast_info[k] = val
+            except Exception:
+                pass
+    except Exception:
+        pass
         
     # Extract earnings and recommendations safely
     earnings_dates = None
@@ -53,12 +72,26 @@ def get_stock_data(symbol: str) -> dict:
     except Exception:
         calendar = None
 
-    # Latest trading row
+    # Latest trading row from validated history
     latest_row = hist.iloc[-1]
     prev_row = hist.iloc[-2] if len(hist) > 1 else latest_row
     
-    curr_price = float(info.get("currentPrice") or info.get("regularMarketPrice") or latest_row["Close"])
-    prev_close = float(info.get("previousClose") or info.get("regularMarketPreviousClose") or prev_row["Close"])
+    # Priority cascade: fast_info -> info -> latest history bar
+    raw_curr = (
+        fast_info.get("lastPrice")
+        or info.get("currentPrice")
+        or info.get("regularMarketPrice")
+        or latest_row["Close"]
+    )
+    curr_price = float(raw_curr)
+    
+    raw_prev = (
+        fast_info.get("previousClose")
+        or info.get("previousClose")
+        or info.get("regularMarketPreviousClose")
+        or prev_row["Close"]
+    )
+    prev_close = float(raw_prev)
     
     change_abs = curr_price - prev_close
     change_pct = (change_abs / prev_close * 100) if prev_close else 0.0
@@ -68,8 +101,8 @@ def get_stock_data(symbol: str) -> dict:
     calc_52_high = float(hist_1y["High"].max()) if not hist_1y.empty else curr_price
     calc_52_low = float(hist_1y["Low"].min()) if not hist_1y.empty else curr_price
     
-    high_52 = float(info.get("fiftyTwoWeekHigh") or calc_52_high)
-    low_52 = float(info.get("fiftyTwoWeekLow") or calc_52_low)
+    high_52 = float(fast_info.get("yearHigh") or info.get("fiftyTwoWeekHigh") or calc_52_high)
+    low_52 = float(fast_info.get("yearLow") or info.get("fiftyTwoWeekLow") or calc_52_low)
     
     # Position within 52w range (0% to 100%)
     if high_52 > low_52:
@@ -77,11 +110,15 @@ def get_stock_data(symbol: str) -> dict:
     else:
         pos_52 = 50.0
 
+    market_cap = fast_info.get("marketCap") or info.get("marketCap")
+    currency = fast_info.get("currency") or info.get("currency", "USD")
+    exchange = fast_info.get("exchange") or info.get("exchange", "Exchange")
+
     return {
         "symbol": symbol,
         "short_name": info.get("shortName") or info.get("longName") or symbol,
-        "currency": info.get("currency", "USD"),
-        "exchange": info.get("exchange", "Exchange"),
+        "currency": currency,
+        "exchange": exchange,
         "sector": info.get("sector", "N/A"),
         "industry": info.get("industry", "N/A"),
         "current_price": curr_price,
@@ -94,7 +131,7 @@ def get_stock_data(symbol: str) -> dict:
         "fifty_two_week_high": high_52,
         "fifty_two_week_low": low_52,
         "fifty_two_week_position": pos_52,
-        "market_cap": info.get("marketCap"),
+        "market_cap": market_cap,
         "trailing_pe": info.get("trailingPE"),
         "forward_pe": info.get("forwardPE"),
         "peg_ratio": info.get("pegRatio"),
@@ -102,6 +139,7 @@ def get_stock_data(symbol: str) -> dict:
         "dividend_yield": (info.get("dividendYield") * 100) if info.get("dividendYield") else None,
         "eps_trailing": info.get("trailingEps"),
         "info": info,
+        "fast_info": fast_info,
         "history": hist,
         "earnings_dates": earnings_dates,
         "recommendations_summary": recs_summary,
@@ -266,7 +304,7 @@ def calculate_two_week_outlook(hist: pd.DataFrame, curr_price: float, info: dict
     macd_bullish = latest_macd > latest_signal
     
     # 4. Volatility & 2-Week Statistical Range
-    returns = closes.pct_change().dropna()
+    returns = closes.pct_change(fill_method=None).dropna()
     daily_vol = float(returns.tail(20).std()) if len(returns) >= 20 else 0.015
     vol_10d = daily_vol * np.sqrt(10)
     
